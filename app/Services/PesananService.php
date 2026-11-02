@@ -9,16 +9,14 @@ use App\Models\Menu;
 use App\Models\Pembayaran;
 use App\Models\Pesanan;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class PesananService
 {
     /**
      * Membuat pesanan beserta detail dan pembayaran dalam satu transaksi.
-     * - QRIS: disimulasikan langsung berhasil (prototipe), pesanan masuk antrean.
-     * - Tunai oleh pelanggan: menunggu konfirmasi kasir.
-     * - Tunai oleh kasir ($idKasir terisi): dianggap sudah dibayar, masuk antrean.
+     * - Pembayaran pelanggan tetap menunggu verifikasi kasir, termasuk QRIS statis.
+     * - Pesanan kasir hanya lunas jika kasir memilih status berhasil.
      */
     public static function buat(Meja $meja, array $data, ?int $idKasir = null): Pesanan
     {
@@ -34,7 +32,8 @@ class PesananService
             }
 
             $metode = $data['metode'];
-            $langsungBayar = ($metode === 'qris') || ($idKasir !== null);
+            $statusBayar = $idKasir !== null ? ($data['status_bayar'] ?? 'menunggu') : 'menunggu';
+            $langsungBayar = $statusBayar === 'berhasil';
             $urut = Pesanan::whereDate('waktu_pesan', today())->lockForUpdate()->count() + 1;
 
             $pesanan = Pesanan::create([
@@ -65,14 +64,19 @@ class PesananService
                 'id_pesanan' => $pesanan->id_pesanan,
                 'metode' => $metode,
                 'jumlah_bayar' => $total,
-                'status_bayar' => $langsungBayar ? 'berhasil' : 'menunggu',
-                'referensi_transaksi' => $metode === 'qris' ? 'SIM-' . strtoupper(Str::random(8)) : null,
+                'status_bayar' => $statusBayar,
+                'referensi_transaksi' => null,
                 'waktu_bayar' => $langsungBayar ? now() : null,
-                'id_penerima' => ($metode === 'tunai' && $idKasir) ? $idKasir : null,
+                'id_penerima' => $langsungBayar ? $idKasir : null,
             ]);
 
             $meja->update(['status_meja' => 'terisi']);
-            LogAktivitas::catat('buat_pesanan', 'pesanan', $pesanan->id_pesanan, $pesanan->nomor_pesanan . ' (' . $metode . ')');
+            LogAktivitas::catat(
+                'buat_pesanan',
+                'pesanan',
+                $pesanan->id_pesanan,
+                $pesanan->nomor_pesanan . ' (' . $metode . ', ' . ($langsungBayar ? 'lunas' : 'belum dibayar') . ')'
+            );
 
             return $pesanan;
         });

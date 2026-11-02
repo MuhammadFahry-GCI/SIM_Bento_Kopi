@@ -1,10 +1,13 @@
 @extends('layouts.app')
 @section('judul', 'Antrean Dapur')
 @section('isi')
-<h5>Antrean pesanan (urut waktu masuk) <small class="text-muted fs-6">diperbarui otomatis</small></h5>
+<div class="page-heading">
+    <div><span class="eyebrow">Operasional dapur</span><h1>Antrean pesanan</h1><p>Urutan berdasarkan waktu pesanan masuk.</p></div>
+    <span class="badge text-bg-light"><span class="text-success">●</span> Diperbarui otomatis</span>
+</div>
 <div id="antrean">@include('dapur._antrean')</div>
 
-<h5 class="mt-4">Ketersediaan menu</h5>
+<h5 class="mt-4 mb-3">Ketersediaan menu</h5>
 <div class="list-group">
     @foreach($menu as $m)
         <div class="list-group-item d-flex justify-content-between align-items-center">

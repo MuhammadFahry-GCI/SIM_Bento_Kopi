@@ -19,11 +19,12 @@ Route::get('/', fn () => redirect()->route('login'));
 // Pelanggan (tanpa login), masuk lewat QR meja
 Route::get('/meja/{nomor}', [PelangganController::class, 'form'])->name('pelanggan.form');
 Route::post('/meja/{nomor}', [PelangganController::class, 'kirim'])->name('pelanggan.kirim');
+Route::get('/pesanan/{nomor}/pembayaran', [PelangganController::class, 'pembayaran'])->name('pelanggan.pembayaran');
 Route::get('/pesanan/{nomor}/status', [PelangganController::class, 'status'])->name('pelanggan.status');
 
 // Autentikasi dan pendaftaran member
 Route::get('/login', [AuthController::class, 'form'])->name('login')->middleware('guest');
-Route::post('/login', [AuthController::class, 'login'])->middleware('guest');
+Route::post('/login', [AuthController::class, 'login'])->middleware(['guest', 'throttle:5,1']);
 Route::get('/register', [AccountController::class, 'registerForm'])->name('register')->middleware('guest');
 Route::post('/register', [AccountController::class, 'register'])->middleware('guest');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth');
@@ -78,9 +79,13 @@ Route::middleware('auth')->group(function () {
         Route::delete('/meja/{id}', [MejaController::class, 'destroy'])->name('meja.destroy');
     });
 
-    // Manajer outlet dan manajemen grup: baca saja
+    // Manajer outlet dan manajemen grup: baca laporan saja
     Route::middleware(CekPeran::class . ':manajer,group')->group(function () {
         Route::get('/laporan', [LaporanController::class, 'index'])->name('laporan');
+    });
+
+    // Log aktivitas hanya dapat dibaca manajer outlet
+    Route::middleware(CekPeran::class . ':manajer')->group(function () {
         Route::get('/log-aktivitas', [LaporanController::class, 'log'])->name('log');
     });
 });

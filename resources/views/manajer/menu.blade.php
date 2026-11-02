@@ -1,7 +1,9 @@
 @extends('layouts.app')
 @section('judul', 'Kelola Menu')
 @section('isi')
-<h5>Tambah menu</h5>
+<div class="page-heading"><div><span class="eyebrow">Data master</span><h1>Kelola menu</h1><p>Atur kategori, harga, dan ketersediaan menu.</p></div></div>
+<div class="card mb-4"><div class="card-body">
+<h5 class="mb-3">Tambah menu</h5>
 <form method="POST" action="{{ route('menu.store') }}" class="row g-2 mb-4">@csrf
     <div class="col-md-3"><select name="id_kategori" class="form-select" required>
         @foreach($kategori as $k)<option value="{{ $k->id_kategori }}">{{ $k->nama_kategori }}</option>@endforeach</select></div>
@@ -10,16 +12,17 @@
     <div class="col-md-1 d-flex align-items-center"><div class="form-check"><input class="form-check-input" type="checkbox" name="tersedia" value="1" checked><label class="form-check-label">Ada</label></div></div>
     <div class="col-md-2"><button class="btn btn-dark w-100">Tambah</button></div>
 </form>
+</div></div>
 
-<h5>Daftar menu</h5>
+<h5 class="mb-3">Daftar menu</h5>
 <div class="table-responsive"><table class="table table-sm align-middle bg-white">
     <thead><tr><th>Kategori</th><th>Nama</th><th>Harga</th><th>Tersedia</th><th></th></tr></thead>
     <tbody>
     @foreach($menu as $m)
         <tr>
             <td colspan="5" class="p-0">
-                <div class="d-flex align-items-center gap-2 p-2">
-                    <form id="u{{ $m->id_menu }}" method="POST" action="{{ route('menu.update', $m->id_menu) }}" class="d-flex flex-grow-1 align-items-center gap-2">@csrf @method('PUT')
+                <div class="manager-list-row">
+                    <form id="u{{ $m->id_menu }}" method="POST" action="{{ route('menu.update', $m->id_menu) }}" class="manager-inline-form">@csrf @method('PUT')
                         <select name="id_kategori" class="form-select form-select-sm" style="width:130px">
                             @foreach($kategori as $k)<option value="{{ $k->id_kategori }}" @selected($k->id_kategori == $m->id_kategori)>{{ $k->nama_kategori }}</option>@endforeach</select>
                         <input name="nama_menu" value="{{ $m->nama_menu }}" class="form-control form-control-sm" required>

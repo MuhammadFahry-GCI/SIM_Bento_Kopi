@@ -37,7 +37,16 @@ class LaporanController extends Controller
 
     public function log()
     {
-        $log = LogAktivitas::with('pengguna')->orderByDesc('id_log')->limit(200)->get();
-        return view('manajer.log', compact('log'));
+        $aktivitasPenjualan = LogAktivitas::with('pengguna')
+            ->whereIn('aksi', ['buat_pesanan', 'konfirmasi_bayar', 'batal_pesanan', 'proses_pesanan', 'pesanan_siap', 'sajikan_pesanan'])
+            ->orderByDesc('id_log')->limit(200)->get();
+        $aktivitasLogin = LogAktivitas::with('pengguna')
+            ->whereIn('aksi', ['login', 'logout'])
+            ->orderByDesc('id_log')->limit(200)->get();
+        $aktivitasLain = LogAktivitas::with('pengguna')
+            ->whereNotIn('aksi', ['buat_pesanan', 'konfirmasi_bayar', 'batal_pesanan', 'proses_pesanan', 'pesanan_siap', 'sajikan_pesanan', 'login', 'logout'])
+            ->orderByDesc('id_log')->limit(200)->get();
+
+        return view('manajer.log', compact('aktivitasPenjualan', 'aktivitasLogin', 'aktivitasLain'));
     }
 }

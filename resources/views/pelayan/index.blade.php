@@ -1,7 +1,8 @@
 @extends('layouts.app')
 @section('judul', 'Penyajian')
 @section('isi')
-<h5>Pesanan siap diantar</h5>
+<div class="page-heading"><div><span class="eyebrow">Operasional layanan</span><h1>Penyajian</h1><p>Antarkan pesanan siap dan perbarui status meja.</p></div><span class="badge text-bg-light">{{ $siap->count() }} pesanan siap</span></div>
+<h5 class="mb-3">Pesanan siap diantar</h5>
 @forelse($siap as $p)
     <div class="card mb-2"><div class="card-body d-flex justify-content-between align-items-center">
         <div><span class="fs-4 fw-bold">Meja {{ $p->meja->nomor_meja }}</span> <span class="text-muted">{{ $p->nomor_pesanan }}</span>
@@ -12,7 +13,7 @@
     <p class="text-muted">Belum ada pesanan siap.</p>
 @endforelse
 
-<h5 class="mt-4">Status meja</h5>
+<h5 class="mt-4 mb-3">Status meja</h5>
 <div class="row g-2">
     @foreach($meja as $m)
         <div class="col-6 col-md-3"><div class="card text-center {{ $m->status_meja === 'terisi' ? 'border-danger' : 'border-success' }}">

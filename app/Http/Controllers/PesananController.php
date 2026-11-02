@@ -14,17 +14,22 @@ class PesananController extends Controller
     {
         $request->validate(['alasan' => 'required|string|max:255']);
 
-        DB::transaction(function () use ($request, $id) {
+        $dibatalkan = DB::transaction(function () use ($request, $id) {
             $p = Pesanan::with('pembayaran')->lockForUpdate()->findOrFail($id);
-            if (in_array($p->status_pesanan, ['disajikan', 'dibatalkan'], true)) {
-                return;
+            if (in_array($p->status_pesanan, ['siap', 'disajikan', 'dibatalkan'], true)) {
+                return false;
             }
             $p->update(['status_pesanan' => 'dibatalkan', 'alasan_batal' => $request->alasan]);
             if ($p->pembayaran && $p->pembayaran->status_bayar === 'menunggu') {
                 $p->pembayaran->update(['status_bayar' => 'gagal']);
             }
             LogAktivitas::catat('batal_pesanan', 'pesanan', $p->id_pesanan, $request->alasan);
+            return true;
         });
+
+        if (!$dibatalkan) {
+            return back()->with('error', 'Pesanan yang sudah siap disajikan atau dibatalkan tidak dapat dibatalkan lagi.');
+        }
 
         return back()->with('ok', 'Pesanan dibatalkan.');
     }

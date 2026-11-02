@@ -29,7 +29,14 @@ class PelangganController extends Controller
         ]);
 
         $pesanan = PesananService::buat($meja, $data, null);
-        return redirect()->route('pelanggan.status', $pesanan->nomor_pesanan);
+        return redirect()->route('pelanggan.pembayaran', $pesanan->nomor_pesanan);
+    }
+
+    public function pembayaran(string $nomor)
+    {
+        $pesanan = Pesanan::with(['meja', 'detail.menu', 'pembayaran'])
+            ->where('nomor_pesanan', $nomor)->firstOrFail();
+        return view('pelanggan.pembayaran', compact('pesanan'));
     }
 
     public function status(string $nomor)

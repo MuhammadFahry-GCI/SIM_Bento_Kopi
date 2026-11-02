@@ -25,21 +25,26 @@ class DapurController extends Controller
 
     public function proses(int $id)
     {
-        $n = Pesanan::where('id_pesanan', $id)->where('status_pesanan', 'antre')->update(['status_pesanan' => 'diproses']);
+        $n = Pesanan::where('id_pesanan', $id)->where('status_pesanan', 'antre')
+            ->whereHas('pembayaran', fn ($query) => $query->where('status_bayar', 'berhasil'))
+            ->update(['status_pesanan' => 'diproses']);
         if ($n) {
             LogAktivitas::catat('proses_pesanan', 'pesanan', $id);
+            return back()->with('ok', 'Pesanan mulai diproses.');
         }
-        return back();
+        return back()->with('error', 'Pesanan belum dibayar atau sudah berubah status; pesanan tidak dapat diproses.');
     }
 
     public function siap(int $id)
     {
         $n = Pesanan::where('id_pesanan', $id)->whereIn('status_pesanan', ['antre', 'diproses'])
+            ->whereHas('pembayaran', fn ($query) => $query->where('status_bayar', 'berhasil'))
             ->update(['status_pesanan' => 'siap', 'waktu_siap' => now()]);
         if ($n) {
             LogAktivitas::catat('pesanan_siap', 'pesanan', $id);
+            return back()->with('ok', 'Pesanan ditandai siap disajikan.');
         }
-        return back();
+        return back()->with('error', 'Pesanan belum dibayar atau sudah berubah status; pesanan tidak dapat ditandai siap.');
     }
 
     public function ketersediaan(int $id)

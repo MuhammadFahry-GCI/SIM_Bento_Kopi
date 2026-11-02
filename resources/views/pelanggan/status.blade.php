@@ -5,8 +5,9 @@
     $label = ['menunggu_bayar' => 'Menunggu pembayaran di kasir', 'antre' => 'Dalam antrean', 'diproses' => 'Sedang disiapkan',
               'siap' => 'Siap, akan segera diantar', 'disajikan' => 'Sudah disajikan', 'dibatalkan' => 'Dibatalkan'];
 @endphp
+<div class="page-heading"><div><span class="eyebrow">Pembaruan pesanan</span><h1>Status pesanan</h1><p>Nomor {{ $pesanan->nomor_pesanan }} · Meja {{ $pesanan->meja->nomor_meja }}</p></div></div>
 <div class="card shadow-sm"><div class="card-body">
-    <h4>Pesanan {{ $pesanan->nomor_pesanan }}</h4>
+    <h4>Detail pesanan</h4>
     <p class="mb-1">Meja <strong>{{ $pesanan->meja->nomor_meja }}</strong></p>
     <p><span class="badge bg-dark fs-6">{{ $label[$pesanan->status_pesanan] }}</span></p>
     @if($pesanan->status_pesanan === 'dibatalkan')<p class="text-danger">Alasan: {{ $pesanan->alasan_batal }}</p>@endif
@@ -16,7 +17,16 @@
         @endforeach
     </ul>
     <p class="fw-bold">Total: Rp {{ number_format($pesanan->total_harga, 0, ',', '.') }}</p>
-    <p class="small text-muted mb-0">Pembayaran: {{ strtoupper($pesanan->pembayaran->metode) }} - {{ $pesanan->pembayaran->status_bayar }}. Halaman ini diperbarui otomatis.</p>
+    <div class="mt-3 rounded border p-3">
+        <div class="fw-semibold">Pembayaran {{ $pesanan->pembayaran->metode === 'qris' ? 'cashless · QRIS' : 'tunai' }}</div>
+        <div class="small text-muted">
+            {{ $pesanan->pembayaran->status_bayar === 'berhasil' ? 'Pembayaran berhasil.' : ($pesanan->pembayaran->status_bayar === 'gagal' ? 'Pembayaran dibatalkan.' : 'Pembayaran belum dikonfirmasi kasir.') }}
+            Status diperbarui otomatis.
+        </div>
+        @if($pesanan->pembayaran->status_bayar === 'menunggu')
+            <a class="btn btn-sm btn-outline-success mt-3" href="{{ route('pelanggan.pembayaran', $pesanan->nomor_pesanan) }}">Buka halaman pembayaran</a>
+        @endif
+    </div>
 </div></div>
 @endsection
 @push('scripts')

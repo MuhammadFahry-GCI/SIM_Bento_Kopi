@@ -1,8 +1,8 @@
 @extends('layouts.app')
 @section('judul', 'Beranda Member')
 @section('isi')
-<h5>Halo, {{ auth()->user()->nama_lengkap }}</h5>
-<p class="text-muted">Pilih meja Anda untuk mulai memesan (sama seperti memindai kode QR di meja).</p>
+<div class="page-heading"><div><span class="eyebrow">Bento Kopi member</span><h1>Halo, {{ auth()->user()->nama_lengkap }}</h1><p>Pilih meja untuk mulai memesan, atau pindai kode QR di meja.</p></div></div>
+<h5 class="mb-3">Pilih meja</h5>
 <div class="row g-2 mb-4">
     @foreach($meja as $m)
         <div class="col-6 col-md-3">
@@ -13,7 +13,7 @@
     @endforeach
 </div>
 
-<h5>Daftar menu</h5>
+<h5 class="mb-3">Jelajahi menu</h5>
 @foreach($kategori as $k)
     @if($k->menu->count())
         <h6 class="mt-3 text-uppercase text-muted">{{ $k->nama_kategori }}</h6>
