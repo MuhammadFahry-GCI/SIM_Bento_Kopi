@@ -26,6 +26,7 @@ class PesananService
         }
 
         return DB::transaction(function () use ($meja, $data, $idKasir, $items) {
+            $meja = Meja::query()->lockForUpdate()->findOrFail($meja->id_meja);
             $menus = Menu::whereIn('id_menu', $items->keys())->where('tersedia', 1)->get()->keyBy('id_menu');
             if ($menus->count() !== $items->count()) {
                 throw ValidationException::withMessages(['items' => 'Ada menu yang tidak tersedia.']);
@@ -34,12 +35,18 @@ class PesananService
             $metode = $data['metode'];
             $statusBayar = $idKasir !== null ? ($data['status_bayar'] ?? 'menunggu') : 'menunggu';
             $langsungBayar = $statusBayar === 'berhasil';
+            $pengguna = auth()->user();
+            $idMember = $idKasir === null && $pengguna?->peran === 'member'
+                ? $pengguna->id_pengguna
+                : null;
             $urut = Pesanan::whereDate('waktu_pesan', today())->lockForUpdate()->count() + 1;
 
             $pesanan = Pesanan::create([
                 'nomor_pesanan' => sprintf('BK-%s-%03d', now()->format('ymd'), $urut),
                 'id_meja' => $meja->id_meja,
                 'id_kasir' => $idKasir,
+                'id_member' => $idMember,
+                'siklus_meja' => $meja->siklus_penggunaan,
                 'nama_pemesan' => $data['nama_pemesan'] ?? null,
                 'catatan' => $data['catatan'] ?? null,
                 'status_pesanan' => $langsungBayar ? 'antre' : 'menunggu_bayar',

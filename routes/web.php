@@ -4,6 +4,8 @@ use App\Http\Controllers\AccountController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DapurController;
 use App\Http\Controllers\KasirController;
+use App\Http\Controllers\KeluhanController;
+use App\Http\Controllers\PengetahuanController;
 use App\Http\Controllers\LaporanController;
 use App\Http\Controllers\MejaController;
 use App\Http\Controllers\MemberController;
@@ -21,6 +23,10 @@ Route::get('/meja/{nomor}', [PelangganController::class, 'form'])->name('pelangg
 Route::post('/meja/{nomor}', [PelangganController::class, 'kirim'])->name('pelanggan.kirim');
 Route::get('/pesanan/{nomor}/pembayaran', [PelangganController::class, 'pembayaran'])->name('pelanggan.pembayaran');
 Route::get('/pesanan/{nomor}/status', [PelangganController::class, 'status'])->name('pelanggan.status');
+Route::get('/pesanan/{nomor}/keluhan', [KeluhanController::class, 'form'])->name('keluhan.form');
+Route::post('/pesanan/{nomor}/keluhan', [KeluhanController::class, 'store'])->middleware('throttle:5,1')->name('keluhan.store');
+Route::get('/keluhan/{kode}', [KeluhanController::class, 'track'])->where('kode', '[A-Z0-9]{12}')->name('keluhan.track');
+Route::get('/panduan', [PengetahuanController::class, 'publicIndex'])->name('pengetahuan.index');
 
 // Autentikasi dan pendaftaran member
 Route::get('/login', [AuthController::class, 'form'])->name('login')->middleware('guest');
@@ -38,6 +44,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/pesanan-baru', [KasirController::class, 'baru'])->name('kasir.baru');
         Route::post('/pesanan-baru', [KasirController::class, 'simpan'])->name('kasir.simpan');
         Route::post('/pesanan/{id}/konfirmasi', [KasirController::class, 'konfirmasi'])->name('kasir.konfirmasi');
+        Route::post('/meja/{id}/kosongkan', [KasirController::class, 'kosongkanMeja'])->name('kasir.meja.kosongkan');
     });
 
     // Pembatalan pesanan: kasir dan manajer (alasan wajib)
@@ -60,7 +67,6 @@ Route::middleware('auth')->group(function () {
     Route::middleware(CekPeran::class . ':pelayan')->prefix('pelayan')->group(function () {
         Route::get('/', [PelayanController::class, 'index'])->name('pelayan.index');
         Route::post('/pesanan/{id}/sajikan', [PelayanController::class, 'sajikan'])->name('pelayan.sajikan');
-        Route::post('/meja/{id}/ubah', [PelayanController::class, 'ubahMeja'])->name('pelayan.meja');
     });
 
     // Manajer outlet: data master (CRUD)
@@ -77,6 +83,15 @@ Route::middleware('auth')->group(function () {
         Route::post('/meja', [MejaController::class, 'store'])->name('meja.store');
         Route::put('/meja/{id}', [MejaController::class, 'update'])->name('meja.update');
         Route::delete('/meja/{id}', [MejaController::class, 'destroy'])->name('meja.destroy');
+
+        Route::get('/pengetahuan', [PengetahuanController::class, 'index'])->name('pengetahuan.manage');
+        Route::post('/pengetahuan', [PengetahuanController::class, 'store'])->name('pengetahuan.store');
+        Route::get('/pengetahuan/{id}/edit', [PengetahuanController::class, 'edit'])->name('pengetahuan.edit');
+        Route::put('/pengetahuan/{id}', [PengetahuanController::class, 'update'])->name('pengetahuan.update');
+        Route::delete('/pengetahuan/{id}', [PengetahuanController::class, 'destroy'])->name('pengetahuan.destroy');
+
+        Route::get('/keluhan', [KeluhanController::class, 'index'])->name('keluhan.manage');
+        Route::put('/keluhan/{id}', [KeluhanController::class, 'update'])->name('keluhan.update');
     });
 
     // Manajer outlet dan manajemen grup: baca laporan saja

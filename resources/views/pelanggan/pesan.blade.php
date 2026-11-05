@@ -2,6 +2,10 @@
 @section('judul', 'Pesan Meja ' . $meja->nomor_meja)
 @section('isi')
 <div class="page-heading"><div><span class="eyebrow">Pemesanan meja {{ $meja->nomor_meja }}</span><h1>Pesan menu</h1><p>{{ ucfirst($meja->area) }} · Pilih menu dan jumlah pesanan Anda.</p></div></div>
+<p class="small text-muted mb-3">Butuh informasi? <a href="{{ route('pengetahuan.index') }}">Baca panduan dan FAQ pelanggan</a>.</p>
+@if(auth()->user()?->peran === 'member')
+    <p class="small text-muted mb-3">Pesanan ini akan disimpan ke riwayat akun member Anda.</p>
+@endif
 <form method="POST" action="{{ route('pelanggan.kirim', $meja->nomor_meja) }}">@csrf
     @include('partials.menu_inputs')
     <div class="card mt-3"><div class="card-body">

@@ -22,7 +22,13 @@ class KasirController extends Controller
             ->orderByDesc('id_log')->limit(20)->get();
         $nomorPesanan = Pesanan::whereIn('id_pesanan', $aktivitas->pluck('id_entitas')->filter())
             ->pluck('nomor_pesanan', 'id_pesanan');
-        return view('kasir.index', compact('menunggu', 'aktif', 'aktivitas', 'nomorPesanan'));
+        $mejaTerisi = Meja::where('status_meja', 'terisi')
+            ->withCount(['pesanan as jumlah_pesanan_aktif' => fn ($query) => $query
+                ->whereIn('status_pesanan', ['menunggu_bayar', 'antre', 'diproses', 'siap'])
+                ->whereColumn('pesanan.siklus_meja', 'meja.siklus_penggunaan')])
+            ->orderBy('nomor_meja')
+            ->get();
+        return view('kasir.index', compact('menunggu', 'aktif', 'aktivitas', 'nomorPesanan', 'mejaTerisi'));
     }
 
     public function baru()
@@ -81,5 +87,33 @@ class KasirController extends Controller
         }
 
         return back()->with('ok', 'Pembayaran dikonfirmasi. Pesanan masuk antrean dapur.');
+    }
+
+    public function kosongkanMeja(int $id)
+    {
+        $berhasilDikosongkan = DB::transaction(function () use ($id) {
+            $meja = Meja::lockForUpdate()->findOrFail($id);
+            if ($meja->status_meja !== 'terisi') {
+                return false;
+            }
+
+            $meja->update([
+                'status_meja' => 'kosong',
+                'siklus_penggunaan' => $meja->siklus_penggunaan + 1,
+            ]);
+            LogAktivitas::catat(
+                'kosongkan_meja',
+                'meja',
+                $meja->id_meja,
+                'Meja ' . $meja->nomor_meja . ' ditandai kosong oleh kasir.'
+            );
+            return true;
+        });
+
+        if (!$berhasilDikosongkan) {
+            return back()->with('error', 'Meja sudah berstatus tersedia.');
+        }
+
+        return back()->with('ok', 'Meja ditandai kosong dan tersedia untuk pelanggan berikutnya.');
     }
 }

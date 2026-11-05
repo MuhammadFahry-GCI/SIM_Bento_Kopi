@@ -23,8 +23,10 @@
             <span class="small text-muted flex-grow-1">{{ $m->status_meja }}</span>
             <button class="btn btn-sm btn-primary">Simpan</button>
         </form>
-        <form method="POST" action="{{ route('meja.destroy', $m->id_meja) }}">@csrf @method('DELETE')
-            <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Hapus meja ini?')">Hapus</button></form>
+        <form method="POST" action="{{ route('meja.destroy', $m->id_meja) }}" data-confirm="Meja ini akan dihapus dari data outlet."
+            data-confirm-title="Hapus meja?"
+            data-confirm-button="Ya, hapus meja">@csrf @method('DELETE')
+            <button class="btn btn-sm btn-outline-danger">Hapus</button></form>
     </div>
 @endforeach
 </div>

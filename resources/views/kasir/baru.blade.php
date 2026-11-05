@@ -6,8 +6,9 @@
 <form method="POST" action="{{ route('kasir.simpan') }}">@csrf
     <div class="mb-2"><label class="form-label">Meja</label>
         <select name="id_meja" class="form-select" required>
-            @foreach($meja as $m)<option value="{{ $m->id_meja }}" @selected(old('id_meja') == $m->id_meja)>{{ $m->nomor_meja }} ({{ $m->area }})</option>@endforeach
+            @foreach($meja as $m)<option value="{{ $m->id_meja }}" @selected(old('id_meja') == $m->id_meja)>{{ $m->nomor_meja }} ({{ $m->area }} · {{ $m->status_meja === 'terisi' ? 'Sedang terisi' : 'Tersedia' }})</option>@endforeach
         </select></div>
+    <p class="small text-muted">Pesanan baru menandai meja terisi. Jika meja sudah digunakan, pastikan pesanan tambahan memang untuk pelanggan di meja tersebut.</p>
     @include('partials.menu_inputs')
     <div class="mt-3 mb-2"><label class="form-label">Nama pemesan (opsional)</label>
         <input name="nama_pemesan" value="{{ old('nama_pemesan') }}" class="form-control" maxlength="100"></div>

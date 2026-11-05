@@ -36,6 +36,45 @@
     <p class="text-muted">Tidak ada.</p>
 @endforelse
 
+<section class="mt-4">
+    <div class="page-heading">
+        <div><span class="eyebrow">Kontrol meja</span><h2>Meja sedang terisi</h2>
+            <p>Periksa pelanggan yang masih menggunakan meja. Setelah pelanggan meninggalkan tempat, tandai meja sebagai tersedia.</p>
+        </div>
+    </div>
+    <div class="row g-2">
+        @forelse($mejaTerisi as $m)
+            <div class="col-sm-6 col-lg-4">
+                <div class="card h-100"><div class="card-body">
+                    <div class="d-flex justify-content-between gap-2">
+                        <strong>Meja {{ $m->nomor_meja }}</strong>
+                        <span class="badge {{ $m->jumlah_pesanan_aktif > 0 ? 'bg-warning text-dark' : 'bg-success' }}">
+                            {{ $m->jumlah_pesanan_aktif > 0 ? $m->jumlah_pesanan_aktif . ' pesanan aktif' : 'Tidak ada pesanan aktif' }}
+                        </span>
+                    </div>
+                    <div class="small text-muted mt-1">{{ ucfirst($m->area) }} · {{ $m->kapasitas }} kursi</div>
+                    <form method="POST" action="{{ route('kasir.meja.kosongkan', $m->id_meja) }}" class="mt-3"
+                        data-confirm="Pastikan pelanggan sudah meninggalkan meja ini sebelum status diubah."
+                        data-confirm-title="Buka kembali meja?"
+                        data-confirm-button="Ya, tandai tersedia">
+                        @csrf
+                        <button class="btn btn-sm btn-outline-success w-100">
+                            Tandai meja tersedia
+                        </button>
+                    </form>
+                    @if($m->jumlah_pesanan_aktif > 0)
+                        <div class="small text-muted mt-2">Pesanan aktif tetap berjalan. Klik hanya jika pelanggan benar-benar sudah meninggalkan meja.</div>
+                    @else
+                        <div class="small text-muted mt-2">Jika pelanggan sudah pergi, klik tombol untuk memperbarui ketersediaan meja.</div>
+                    @endif
+                </div></div>
+            </div>
+        @empty
+            <div class="col-12"><div class="card"><div class="card-body text-muted">Semua meja berstatus tersedia.</div></div></div>
+        @endforelse
+    </div>
+</section>
+
 <section class="mt-5">
     <div class="page-heading">
         <div><span class="eyebrow">Jejak operasional</span><h2>Aktivitas pesanan</h2><p>20 aktivitas terbaru dari proses pemesanan sampai penyajian.</p></div>

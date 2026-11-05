@@ -12,7 +12,7 @@ class Meja extends Model
     protected $table = 'meja';
     protected $primaryKey = 'id_meja';
     public $timestamps = false;
-    protected $fillable = ['nomor_meja','kapasitas','area','status_meja'];
+    protected $fillable = ['nomor_meja','kapasitas','area','status_meja','siklus_penggunaan'];
 
     public function pesanan(): HasMany { return $this->hasMany(Pesanan::class, 'id_meja', 'id_meja'); }
 }

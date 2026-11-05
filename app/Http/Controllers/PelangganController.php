@@ -36,12 +36,14 @@ class PelangganController extends Controller
     {
         $pesanan = Pesanan::with(['meja', 'detail.menu', 'pembayaran'])
             ->where('nomor_pesanan', $nomor)->firstOrFail();
+        abort_unless($pesanan->dapatDiaksesOleh(auth()->id()), 404);
         return view('pelanggan.pembayaran', compact('pesanan'));
     }
 
     public function status(string $nomor)
     {
         $pesanan = Pesanan::with(['meja', 'detail.menu', 'pembayaran'])->where('nomor_pesanan', $nomor)->firstOrFail();
+        abort_unless($pesanan->dapatDiaksesOleh(auth()->id()), 404);
         return view('pelanggan.status', compact('pesanan'));
     }
 }

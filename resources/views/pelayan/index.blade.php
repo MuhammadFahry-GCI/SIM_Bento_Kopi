@@ -1,7 +1,7 @@
 @extends('layouts.app')
 @section('judul', 'Penyajian')
 @section('isi')
-<div class="page-heading"><div><span class="eyebrow">Operasional layanan</span><h1>Penyajian</h1><p>Antarkan pesanan siap dan perbarui status meja.</p></div><span class="badge text-bg-light">{{ $siap->count() }} pesanan siap</span></div>
+<div class="page-heading"><div><span class="eyebrow">Operasional layanan</span><h1>Penyajian</h1><p>Antarkan pesanan siap. Status meja dikelola kasir setelah pelanggan meninggalkan tempat.</p></div><span class="badge text-bg-light">{{ $siap->count() }} pesanan siap</span></div>
 <h5 class="mb-3">Pesanan siap diantar</h5>
 @forelse($siap as $p)
     <div class="card mb-2"><div class="card-body d-flex justify-content-between align-items-center">
@@ -13,15 +13,4 @@
     <p class="text-muted">Belum ada pesanan siap.</p>
 @endforelse
 
-<h5 class="mt-4 mb-3">Status meja</h5>
-<div class="row g-2">
-    @foreach($meja as $m)
-        <div class="col-6 col-md-3"><div class="card text-center {{ $m->status_meja === 'terisi' ? 'border-danger' : 'border-success' }}">
-            <div class="card-body p-2"><div class="fw-bold">{{ $m->nomor_meja }}</div>
-                <div class="small text-muted">{{ $m->area }} | {{ $m->kapasitas }} kursi</div>
-                <form method="POST" action="{{ route('pelayan.meja', $m->id_meja) }}">@csrf
-                    <button class="btn btn-sm mt-1 {{ $m->status_meja === 'terisi' ? 'btn-danger' : 'btn-success' }}">{{ $m->status_meja }}</button></form>
-            </div></div></div>
-    @endforeach
-</div>
 @endsection

@@ -30,8 +30,10 @@
                         <label class="small text-nowrap"><input type="checkbox" name="tersedia" value="1" @checked($m->tersedia)> Ada</label>
                         <button class="btn btn-sm btn-primary">Simpan</button>
                     </form>
-                    <form method="POST" action="{{ route('menu.destroy', $m->id_menu) }}">@csrf @method('DELETE')
-                        <button class="btn btn-sm btn-outline-danger" onclick="return confirm('Hapus menu ini?')">Hapus</button></form>
+                    <form method="POST" action="{{ route('menu.destroy', $m->id_menu) }}" data-confirm="Menu ini akan dihapus. Menu yang sudah digunakan pada pesanan tidak dapat dihapus."
+                        data-confirm-title="Hapus menu?"
+                        data-confirm-button="Ya, hapus menu">@csrf @method('DELETE')
+                        <button class="btn btn-sm btn-outline-danger">Hapus</button></form>
                 </div>
             </td>
         </tr>

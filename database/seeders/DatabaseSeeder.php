@@ -78,5 +78,7 @@ class DatabaseSeeder extends Seeder
         ] as [$nama, $lokasi]) {
             Fasilitas::create(['nama_fasilitas' => $nama, 'lokasi' => $lokasi, 'kondisi' => 'baik']);
         }
+
+        $this->call(PengetahuanSeeder::class);
     }
 }

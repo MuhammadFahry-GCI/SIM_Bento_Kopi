@@ -162,6 +162,7 @@
         @auth
             @php $peran = auth()->user()->peran; @endphp
             <nav class="app-nav" aria-label="Navigasi utama">
+                <a class="{{ request()->routeIs('pengetahuan.index') ? 'active' : '' }}" href="{{ route('pengetahuan.index') }}">Panduan</a>
                 @if($peran === 'kasir')
                     <a class="{{ request()->routeIs('kasir.index') ? 'active' : '' }}" href="{{ route('kasir.index') }}">Ringkasan kasir</a>
                     <a class="{{ request()->routeIs('kasir.baru') ? 'active' : '' }}" href="{{ route('kasir.baru') }}">Pesanan tunai</a>
@@ -177,6 +178,8 @@
                         <a class="{{ request()->routeIs('akun.*') ? 'active' : '' }}" href="{{ route('akun.index') }}">Akun</a>
                         <a class="{{ request()->routeIs('menu.*') ? 'active' : '' }}" href="{{ route('menu.index') }}">Menu</a>
                         <a class="{{ request()->routeIs('meja.*') ? 'active' : '' }}" href="{{ route('meja.index') }}">Meja</a>
+                        <a class="{{ request()->routeIs('keluhan.manage', 'keluhan.update') ? 'active' : '' }}" href="{{ route('keluhan.manage') }}">Keluhan</a>
+                        <a class="{{ request()->routeIs('pengetahuan.manage', 'pengetahuan.edit') ? 'active' : '' }}" href="{{ route('pengetahuan.manage') }}">Basis pengetahuan</a>
                         <a class="{{ request()->routeIs('log') ? 'active' : '' }}" href="{{ route('log') }}">Aktivitas</a>
                     @endif
                 @endif
@@ -194,15 +197,72 @@
     </div>
 </header>
 <main class="container app-main">
-    @if(session('ok'))<div class="alert alert-success">{{ session('ok') }}</div>@endif
-    @if(session('error'))<div class="alert alert-danger">{{ session('error') }}</div>@endif
-    @if($errors->any())
-        <div class="alert alert-danger"><strong>Periksa kembali data berikut:</strong><ul class="mb-0 mt-2">@foreach($errors->all() as $e)<li>{{ $e }}</li>@endforeach</ul></div>
-    @endif
     @yield('isi')
 </main>
 @stack('scripts')
+<script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
 <script>
+    const appAlerts = {
+        success: @json(session('ok')),
+        error: @json(session('error')),
+        validationErrors: @json($errors->all()),
+    };
+
+    if (appAlerts.validationErrors.length > 0) {
+        Swal.fire({
+            icon: 'error',
+            title: 'Periksa kembali data',
+            html: '<ul class="text-start mb-0"></ul>',
+            background: '#1a211d',
+            color: '#f3f5ef',
+            confirmButtonColor: '#17865c',
+            didOpen: (popup) => {
+                const list = popup.querySelector('ul');
+                appAlerts.validationErrors.forEach((message) => {
+                    const item = document.createElement('li');
+                    item.textContent = message;
+                    list.append(item);
+                });
+            },
+        });
+    } else if (appAlerts.success || appAlerts.error) {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: appAlerts.success ? 'success' : 'error',
+            titleText: appAlerts.success || appAlerts.error,
+            showConfirmButton: false,
+            timer: 3500,
+            timerProgressBar: true,
+            background: '#1a211d',
+            color: '#f3f5ef',
+        });
+    }
+
+    document.addEventListener('submit', async (event) => {
+        const form = event.target.closest('form[data-confirm]');
+        if (!form || form.dataset.confirmed === 'true') return;
+
+        event.preventDefault();
+        const result = await Swal.fire({
+            icon: 'warning',
+            title: form.dataset.confirmTitle || 'Konfirmasi tindakan',
+            text: form.dataset.confirm,
+            showCancelButton: true,
+            confirmButtonText: form.dataset.confirmButton || 'Ya, lanjutkan',
+            cancelButtonText: 'Batal',
+            confirmButtonColor: '#17865c',
+            cancelButtonColor: '#58675d',
+            background: '#1a211d',
+            color: '#f3f5ef',
+        });
+
+        if (result.isConfirmed) {
+            form.dataset.confirmed = 'true';
+            form.requestSubmit();
+        }
+    });
+
     document.addEventListener('click', (event) => {
         const toggle = event.target.closest('[data-password-toggle]');
         if (!toggle) return;

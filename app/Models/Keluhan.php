@@ -12,7 +12,7 @@ class Keluhan extends Model
     protected $table = 'keluhan';
     protected $primaryKey = 'id_keluhan';
     public $timestamps = false;
-    protected $fillable = ['id_pesanan','kategori','deskripsi','nama_pelapor','kontak_pelapor','status_keluhan','kompensasi_persen','tindak_lanjut','id_pencatat','id_penangan','waktu_lapor','waktu_selesai'];
+    protected $fillable = ['id_pesanan','kode_tiket','kategori','deskripsi','nama_pelapor','kontak_pelapor','status_keluhan','kompensasi_persen','tindak_lanjut','id_pencatat','id_penangan','waktu_lapor','waktu_selesai'];
 
     protected $casts = ['waktu_lapor' => 'datetime', 'waktu_selesai' => 'datetime'];
 

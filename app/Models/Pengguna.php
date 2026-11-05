@@ -36,4 +36,9 @@ class Pengguna extends Authenticatable
     {
         return $this->hasMany(LogAktivitas::class, 'id_pengguna', 'id_pengguna');
     }
+
+    public function pesananMember(): HasMany
+    {
+        return $this->hasMany(Pesanan::class, 'id_member', 'id_pengguna');
+    }
 }

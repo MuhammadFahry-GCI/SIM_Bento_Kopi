@@ -27,6 +27,10 @@
             <a class="btn btn-sm btn-outline-success mt-3" href="{{ route('pelanggan.pembayaran', $pesanan->nomor_pesanan) }}">Buka halaman pembayaran</a>
         @endif
     </div>
+    <div class="d-flex flex-wrap gap-2 mt-3">
+        <a class="btn btn-outline-success" href="{{ route('keluhan.form', $pesanan->nomor_pesanan) }}">Sampaikan keluhan</a>
+        <a class="btn btn-outline-secondary" href="{{ route('pengetahuan.index') }}">Buka panduan pelanggan</a>
+    </div>
 </div></div>
 @endsection
 @push('scripts')
