@@ -23,7 +23,7 @@ class PelangganController extends Controller
         $data = $request->validate([
             'items' => 'required|array',
             'items.*' => 'nullable|integer|min:0|max:20',
-            'nama_pemesan' => 'nullable|string|max:100',
+            'nama_pemesan' => 'required|string|max:100',
             'catatan' => 'nullable|string|max:500',
             'metode' => 'required|in:qris,tunai',
         ]);
@@ -34,7 +34,7 @@ class PelangganController extends Controller
 
     public function pembayaran(string $nomor)
     {
-        $pesanan = Pesanan::with(['meja', 'detail.menu', 'pembayaran'])
+        $pesanan = Pesanan::with(['meja', 'detail.menu', 'pembayaran', 'member'])
             ->where('nomor_pesanan', $nomor)->firstOrFail();
         abort_unless($pesanan->dapatDiaksesOleh(auth()->id()), 404);
         return view('pelanggan.pembayaran', compact('pesanan'));
@@ -42,7 +42,7 @@ class PelangganController extends Controller
 
     public function status(string $nomor)
     {
-        $pesanan = Pesanan::with(['meja', 'detail.menu', 'pembayaran'])->where('nomor_pesanan', $nomor)->firstOrFail();
+        $pesanan = Pesanan::with(['meja', 'detail.menu', 'pembayaran', 'member'])->where('nomor_pesanan', $nomor)->firstOrFail();
         abort_unless($pesanan->dapatDiaksesOleh(auth()->id()), 404);
         return view('pelanggan.status', compact('pesanan'));
     }

@@ -12,8 +12,7 @@ class LaporanController extends Controller
 {
     public function index()
     {
-        $durasiPenyajian = Pesanan::where('status_pesanan', 'disajikan')
-            ->whereNotNull('waktu_disajikan')
+        $durasiPenyajian = Pesanan::whereNotNull('waktu_disajikan')
             ->get(['waktu_pesan', 'waktu_disajikan'])
             ->map(fn (Pesanan $pesanan) => $pesanan->waktu_pesan->diffInSeconds($pesanan->waktu_disajikan));
         $rataDetik = $durasiPenyajian->isNotEmpty() ? $durasiPenyajian->avg() : null;
@@ -69,6 +68,7 @@ class LaporanController extends Controller
             'diproses' => 'Diproses',
             'siap' => 'Siap disajikan',
             'disajikan' => 'Disajikan',
+            'selesai' => 'Selesai',
             'dibatalkan' => 'Dibatalkan',
         ];
         $perStatus = collect($labelStatus)->map(fn (string $label, string $status) => (object) [
@@ -100,6 +100,10 @@ class LaporanController extends Controller
         $aktivitasPenjualan = LogAktivitas::with('pengguna')
             ->whereIn('aksi', ['buat_pesanan', 'konfirmasi_bayar', 'batal_pesanan', 'proses_pesanan', 'pesanan_siap', 'sajikan_pesanan'])
             ->orderByDesc('id_log')->limit(200)->get();
+        $pesananAktivitas = Pesanan::with(['member', 'detail.menu'])
+            ->whereIn('id_pesanan', $aktivitasPenjualan->pluck('id_entitas')->filter()->unique())
+            ->get()
+            ->keyBy('id_pesanan');
         $aktivitasLogin = LogAktivitas::with('pengguna')
             ->whereIn('aksi', ['login', 'logout'])
             ->orderByDesc('id_log')->limit(200)->get();
@@ -107,6 +111,6 @@ class LaporanController extends Controller
             ->whereNotIn('aksi', ['buat_pesanan', 'konfirmasi_bayar', 'batal_pesanan', 'proses_pesanan', 'pesanan_siap', 'sajikan_pesanan', 'login', 'logout'])
             ->orderByDesc('id_log')->limit(200)->get();
 
-        return view('manajer.log', compact('aktivitasPenjualan', 'aktivitasLogin', 'aktivitasLain'));
+        return view('manajer.log', compact('aktivitasPenjualan', 'aktivitasLogin', 'aktivitasLain', 'pesananAktivitas'));
     }
 }

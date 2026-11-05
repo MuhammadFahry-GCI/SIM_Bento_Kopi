@@ -15,9 +15,12 @@ class PesananController extends Controller
         $request->validate(['alasan' => 'required|string|max:255']);
 
         $dibatalkan = DB::transaction(function () use ($request, $id) {
-            $p = Pesanan::with('pembayaran')->lockForUpdate()->findOrFail($id);
+            $p = Pesanan::with('pembayaran', 'meja')->lockForUpdate()->findOrFail($id);
             if (in_array($p->status_pesanan, ['siap', 'disajikan', 'dibatalkan'], true)) {
                 return false;
+            }
+            if (!Pesanan::query()->dalamSesiMejaAktif()->whereKey($p->id_pesanan)->exists()) {
+                return 'sesi_ditutup';
             }
             $p->update(['status_pesanan' => 'dibatalkan', 'alasan_batal' => $request->alasan]);
             if ($p->pembayaran && $p->pembayaran->status_bayar === 'menunggu') {
@@ -26,6 +29,10 @@ class PesananController extends Controller
             LogAktivitas::catat('batal_pesanan', 'pesanan', $p->id_pesanan, $request->alasan);
             return true;
         });
+
+        if ($dibatalkan === 'sesi_ditutup') {
+            return back()->with('error', 'Sesi meja sudah ditutup. Pesanan hanya dapat dilihat di riwayat.');
+        }
 
         if (!$dibatalkan) {
             return back()->with('error', 'Pesanan yang sudah siap disajikan atau dibatalkan tidak dapat dibatalkan lagi.');

@@ -5,7 +5,7 @@
 
 <section class="mb-5">
     <div class="page-heading"><div><span class="eyebrow">Transaksi</span><h2>Aktivitas penjualan</h2><p>Pemesanan, pembayaran, pembatalan, dan status penyajian.</p></div></div>
-    @include('partials.activity_log_table', ['logs' => $aktivitasPenjualan])
+    @include('partials.activity_log_table', ['logs' => $aktivitasPenjualan, 'tampilkanRincianPesanan' => true])
 </section>
 
 <section class="mb-5">

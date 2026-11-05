@@ -11,8 +11,9 @@ class DapurController extends Controller
 {
     public function index(Request $request)
     {
-        // Antrean FIFO berdasarkan waktu_pesan
-        $pesanan = Pesanan::with(['meja', 'detail.menu'])
+        // Pesanan lunas diproses berurutan berdasarkan waktu pesanan.
+        $pesanan = Pesanan::with(['meja', 'detail.menu', 'member'])
+            ->dalamSesiMejaAktif()
             ->whereIn('status_pesanan', ['antre', 'diproses'])
             ->orderBy('waktu_pesan')->get();
 
@@ -23,21 +24,9 @@ class DapurController extends Controller
         return view('dapur.index', compact('pesanan', 'menu'));
     }
 
-    public function proses(int $id)
-    {
-        $n = Pesanan::where('id_pesanan', $id)->where('status_pesanan', 'antre')
-            ->whereHas('pembayaran', fn ($query) => $query->where('status_bayar', 'berhasil'))
-            ->update(['status_pesanan' => 'diproses']);
-        if ($n) {
-            LogAktivitas::catat('proses_pesanan', 'pesanan', $id);
-            return back()->with('ok', 'Pesanan mulai diproses.');
-        }
-        return back()->with('error', 'Pesanan belum dibayar atau sudah berubah status; pesanan tidak dapat diproses.');
-    }
-
     public function siap(int $id)
     {
-        $n = Pesanan::where('id_pesanan', $id)->whereIn('status_pesanan', ['antre', 'diproses'])
+        $n = Pesanan::query()->dalamSesiMejaAktif()->where('id_pesanan', $id)->whereIn('status_pesanan', ['antre', 'diproses'])
             ->whereHas('pembayaran', fn ($query) => $query->where('status_bayar', 'berhasil'))
             ->update(['status_pesanan' => 'siap', 'waktu_siap' => now()]);
         if ($n) {

@@ -54,7 +54,6 @@ Route::middleware('auth')->group(function () {
     // Dapur dan barista
     Route::middleware(CekPeran::class . ':dapur')->prefix('dapur')->group(function () {
         Route::get('/', [DapurController::class, 'index'])->name('dapur.index');
-        Route::post('/{id}/proses', [DapurController::class, 'proses'])->name('dapur.proses');
         Route::post('/{id}/siap', [DapurController::class, 'siap'])->name('dapur.siap');
         Route::post('/menu/{id}/ketersediaan', [DapurController::class, 'ketersediaan'])->name('dapur.ketersediaan');
     });

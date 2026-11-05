@@ -47,9 +47,9 @@ class PesananService
                 'id_kasir' => $idKasir,
                 'id_member' => $idMember,
                 'siklus_meja' => $meja->siklus_penggunaan,
-                'nama_pemesan' => $data['nama_pemesan'] ?? null,
+                'nama_pemesan' => trim($data['nama_pemesan'] ?? '') ?: ($idMember !== null ? $pengguna->nama_lengkap : null),
                 'catatan' => $data['catatan'] ?? null,
-                'status_pesanan' => $langsungBayar ? 'antre' : 'menunggu_bayar',
+                'status_pesanan' => $langsungBayar ? 'diproses' : 'menunggu_bayar',
                 'total_harga' => 0,
                 'waktu_pesan' => now(),
             ]);

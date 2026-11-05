@@ -1,8 +1,8 @@
 @extends('layouts.app')
-@section('judul', 'Antrean Dapur')
+@section('judul', 'Pesanan Dapur')
 @section('isi')
 <div class="page-heading">
-    <div><span class="eyebrow">Operasional dapur</span><h1>Antrean pesanan</h1><p>Urutan berdasarkan waktu pesanan masuk.</p></div>
+    <div><span class="eyebrow">Operasional dapur</span><h1>Pesanan diproses</h1><p>Pesanan lunas langsung diproses. Tandai siap saat pesanan selesai dibuat.</p></div>
     <span class="badge text-bg-light"><span class="text-success">●</span> Diperbarui otomatis</span>
 </div>
 <div id="antrean">@include('dapur._antrean')</div>

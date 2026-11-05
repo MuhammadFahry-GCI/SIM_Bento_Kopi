@@ -44,10 +44,11 @@
                 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
                     <div>
                         <h3 class="h5 mb-1">{{ $p->nomor_pesanan }} · Meja {{ $p->meja->nomor_meja }}</h3>
+                        <div class="small">Pemesan: {{ $p->nama_pemesan_tampilan ?: 'Tidak dicantumkan' }}</div>
                         <div class="small text-muted">{{ $p->waktu_pesan->format('d/m/Y H:i') }} · Rp {{ number_format($p->total_harga, 0, ',', '.') }}</div>
                     </div>
                     <span class="badge {{ $p->status_pesanan === 'menunggu_bayar' ? 'bg-warning text-dark' : 'bg-info text-dark' }}">
-                        {{ ['menunggu_bayar' => 'Menunggu pembayaran', 'antre' => 'Dalam antrean', 'diproses' => 'Sedang disiapkan', 'siap' => 'Siap disajikan'][$p->status_pesanan] }}
+                        {{ ['menunggu_bayar' => 'Menunggu pembayaran', 'antre' => 'Sedang disiapkan', 'diproses' => 'Sedang disiapkan', 'siap' => 'Siap disajikan'][$p->status_pesanan] }}
                     </span>
                 </div>
                 <div class="small mt-2">
@@ -65,7 +66,7 @@
 
 <section class="mb-5">
     <div class="page-heading">
-        <div><span class="eyebrow">Riwayat transaksi</span><h2>Pesanan pada sesi meja yang sudah dibuka kembali</h2><p>Pesanan selesai, dibatalkan, atau berasal dari sesi meja yang sudah ditutup dipindahkan ke sini.</p></div>
+        <div><span class="eyebrow">Riwayat transaksi</span><h2>Pesanan selesai dan riwayat sesi meja</h2><p>Pesanan selesai, dibatalkan, atau berasal dari sesi meja yang sudah ditutup dipindahkan ke sini.</p></div>
     </div>
     <div class="d-grid gap-3">
         @forelse($riwayat as $p)
@@ -73,10 +74,11 @@
                 <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
                     <div>
                         <h3 class="h5 mb-1">{{ $p->nomor_pesanan }} · Meja {{ $p->meja->nomor_meja }}</h3>
+                        <div class="small">Pemesan: {{ $p->nama_pemesan_tampilan ?: 'Tidak dicantumkan' }}</div>
                         <div class="small text-muted">{{ $p->waktu_pesan->format('d/m/Y H:i') }} · Rp {{ number_format($p->total_harga, 0, ',', '.') }}</div>
                     </div>
-                    <span class="badge {{ $p->status_pesanan === 'disajikan' ? 'bg-success' : 'bg-secondary' }}">
-                        {{ $p->status_pesanan === 'disajikan' ? 'Selesai disajikan' : ($p->status_pesanan === 'dibatalkan' ? 'Dibatalkan' : 'Sesi meja ditutup') }}
+                    <span class="badge {{ $p->status_pesanan === 'dibatalkan' ? 'bg-secondary' : 'bg-success' }}">
+                        {{ $p->status_pesanan === 'dibatalkan' ? 'Dibatalkan' : 'Selesai' }}
                     </span>
                 </div>
                 <div class="small mt-2">
@@ -85,8 +87,15 @@
                     @endforeach
                 </div>
                 @if($p->alasan_batal)<div class="small text-muted mt-2">Alasan pembatalan: {{ $p->alasan_batal }}</div>@endif
-                @if($p->sesi_meja_selesai && !in_array($p->status_pesanan, ['disajikan', 'dibatalkan'], true))
-                    <div class="small text-muted mt-2">Meja sudah dibuka kembali oleh kasir. Status pesanan terakhir: {{ ['menunggu_bayar' => 'menunggu pembayaran', 'antre' => 'dalam antrean', 'diproses' => 'sedang disiapkan', 'siap' => 'siap disajikan'][$p->status_pesanan] }}.</div>
+                @if($p->sesi_meja_selesai && $p->status_pesanan !== 'dibatalkan')
+                    <div class="small text-muted mt-2">Sesi meja ditutup oleh kasir. Status terakhir pesanan: {{ [
+                        'menunggu_bayar' => 'menunggu pembayaran',
+                        'antre' => 'sedang diproses',
+                        'diproses' => 'sedang diproses',
+                        'siap' => 'siap disajikan',
+                        'disajikan' => 'sudah disajikan',
+                        'selesai' => 'selesai',
+                    ][$p->status_pesanan] ?? $p->status_pesanan }}.</div>
                 @endif
                 <a class="btn btn-sm btn-outline-secondary mt-3" href="{{ route('pelanggan.status', $p->nomor_pesanan) }}">Lihat rincian</a>
             </div></article>

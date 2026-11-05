@@ -10,8 +10,8 @@
         </select></div>
     <p class="small text-muted">Pesanan baru menandai meja terisi. Jika meja sudah digunakan, pastikan pesanan tambahan memang untuk pelanggan di meja tersebut.</p>
     @include('partials.menu_inputs')
-    <div class="mt-3 mb-2"><label class="form-label">Nama pemesan (opsional)</label>
-        <input name="nama_pemesan" value="{{ old('nama_pemesan') }}" class="form-control" maxlength="100"></div>
+    <div class="mt-3 mb-2"><label class="form-label">Nama pemesan</label>
+        <input name="nama_pemesan" value="{{ old('nama_pemesan') }}" class="form-control" maxlength="100" required></div>
     <div class="mb-3"><label class="form-label">Catatan (opsional)</label>
         <textarea name="catatan" class="form-control" rows="2">{{ old('catatan') }}</textarea></div>
     @include('partials.payment_method', ['isKasir' => true])

@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -22,6 +23,31 @@ class Pesanan extends Model
     public function detail(): HasMany { return $this->hasMany(DetailPesanan::class, 'id_pesanan', 'id_pesanan'); }
     public function pembayaran(): HasOne { return $this->hasOne(Pembayaran::class, 'id_pesanan', 'id_pesanan'); }
     public function keluhan(): HasMany { return $this->hasMany(Keluhan::class, 'id_pesanan', 'id_pesanan'); }
+
+    public function getNamaPemesanTampilanAttribute(): ?string
+    {
+        return filled($this->nama_pemesan) ? $this->nama_pemesan : $this->member?->nama_lengkap;
+    }
+
+    public function scopeDalamSesiMejaAktif(Builder $query): Builder
+    {
+        return $query->whereHas('meja', fn (Builder $meja) => $meja
+            ->where('meja.status_meja', 'terisi')
+            ->whereColumn('pesanan.siklus_meja', 'meja.siklus_penggunaan'));
+    }
+
+    public function scopeSesiMejaDitutup(Builder $query): Builder
+    {
+        return $query->whereDoesntHave('meja', fn (Builder $meja) => $meja
+            ->where('meja.status_meja', 'terisi')
+            ->whereColumn('pesanan.siklus_meja', 'meja.siklus_penggunaan'));
+    }
+
+    public function sesiMejaDitutup(): bool
+    {
+        return $this->meja->status_meja === 'kosong'
+            || (int) $this->siklus_meja !== (int) $this->meja->siklus_penggunaan;
+    }
 
     public function dapatDiaksesOleh(?int $idPengguna): bool
     {

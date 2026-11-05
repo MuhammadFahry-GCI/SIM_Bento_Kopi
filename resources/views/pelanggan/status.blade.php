@@ -2,10 +2,13 @@
 @section('judul', 'Status Pesanan')
 @section('isi')
 @php
-    $label = ['menunggu_bayar' => 'Menunggu pembayaran di kasir', 'antre' => 'Dalam antrean', 'diproses' => 'Sedang disiapkan',
-              'siap' => 'Siap, akan segera diantar', 'disajikan' => 'Sudah disajikan', 'dibatalkan' => 'Dibatalkan'];
+    $label = ['menunggu_bayar' => 'Menunggu pembayaran di kasir', 'antre' => 'Sedang disiapkan', 'diproses' => 'Sedang disiapkan',
+              'siap' => 'Siap, akan segera diantar', 'disajikan' => 'Sudah disajikan', 'selesai' => 'Selesai', 'dibatalkan' => 'Dibatalkan'];
+    if ($pesanan->sesiMejaDitutup() && $pesanan->status_pesanan !== 'dibatalkan') {
+        $label[$pesanan->status_pesanan] = 'Selesai';
+    }
 @endphp
-<div class="page-heading"><div><span class="eyebrow">Pembaruan pesanan</span><h1>Status pesanan</h1><p>Nomor {{ $pesanan->nomor_pesanan }} · Meja {{ $pesanan->meja->nomor_meja }}</p></div></div>
+<div class="page-heading"><div><span class="eyebrow">Pembaruan pesanan</span><h1>Status pesanan</h1><p>Nomor {{ $pesanan->nomor_pesanan }} · Pemesan {{ $pesanan->nama_pemesan_tampilan ?: 'Tidak dicantumkan' }} · Meja {{ $pesanan->meja->nomor_meja }}</p></div></div>
 <div class="card shadow-sm"><div class="card-body">
     <h4>Detail pesanan</h4>
     <p class="mb-1">Meja <strong>{{ $pesanan->meja->nomor_meja }}</strong></p>
@@ -34,5 +37,5 @@
 </div></div>
 @endsection
 @push('scripts')
-<script>@if(!in_array($pesanan->status_pesanan, ['disajikan', 'dibatalkan']))setTimeout(() => location.reload(), 15000);@endif</script>
+<script>@if(!in_array($pesanan->status_pesanan, ['disajikan', 'selesai', 'dibatalkan']) && !$pesanan->sesiMejaDitutup())setTimeout(() => location.reload(), 15000);@endif</script>
 @endpush

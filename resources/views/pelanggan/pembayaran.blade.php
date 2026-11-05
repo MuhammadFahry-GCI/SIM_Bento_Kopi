@@ -2,9 +2,10 @@
 @section('judul', 'Pembayaran ' . $pesanan->nomor_pesanan)
 @section('isi')
 <div class="page-heading">
-    <div><span class="eyebrow">Pembayaran pesanan</span><h1>{{ $pesanan->nomor_pesanan }}</h1><p>Meja {{ $pesanan->meja->nomor_meja }} · {{ $pesanan->waktu_pesan->format('d/m/Y H:i') }}</p></div>
-    <span class="badge {{ $pesanan->pembayaran->status_bayar === 'berhasil' ? 'text-bg-success' : ($pesanan->status_pesanan === 'dibatalkan' ? 'text-bg-danger' : 'text-bg-warning') }}">
-        {{ $pesanan->status_pesanan === 'dibatalkan' ? 'Pesanan dibatalkan' : ($pesanan->pembayaran->status_bayar === 'berhasil' ? 'Lunas' : 'Menunggu pembayaran') }}
+    <div><span class="eyebrow">Pembayaran pesanan</span><h1>{{ $pesanan->nomor_pesanan }}</h1><p>Pemesan {{ $pesanan->nama_pemesan_tampilan ?: 'Tidak dicantumkan' }} · Meja {{ $pesanan->meja->nomor_meja }} · {{ $pesanan->waktu_pesan->format('d/m/Y H:i') }}</p></div>
+    @php $sesiDitutup = $pesanan->sesiMejaDitutup(); @endphp
+    <span class="badge {{ $pesanan->status_pesanan === 'dibatalkan' ? 'text-bg-danger' : ($sesiDitutup || $pesanan->status_pesanan === 'selesai' ? 'text-bg-secondary' : ($pesanan->pembayaran->status_bayar === 'berhasil' ? 'text-bg-success' : 'text-bg-warning')) }}">
+        {{ $pesanan->status_pesanan === 'dibatalkan' ? 'Pesanan dibatalkan' : ($sesiDitutup || $pesanan->status_pesanan === 'selesai' ? 'Sesi pesanan selesai' : ($pesanan->pembayaran->status_bayar === 'berhasil' ? 'Lunas' : 'Menunggu pembayaran')) }}
     </span>
 </div>
 <div class="row g-4">
@@ -35,9 +36,13 @@
                 <div class="eyebrow">Pesanan dibatalkan</div>
                 <h2 class="h5">Pembayaran tidak dilanjutkan</h2>
                 <p class="text-muted">Silakan hubungi kasir jika pembayaran sudah sempat dilakukan.</p>
+            @elseif($sesiDitutup || $pesanan->status_pesanan === 'selesai')
+                <div class="eyebrow">Sesi meja ditutup</div>
+                <h2 class="h5">Pesanan sudah selesai</h2>
+                <p class="text-muted">Pesanan tidak dapat dibayar atau diproses lagi setelah sesi meja ditutup. Hubungi kasir jika Anda sudah melakukan pembayaran.</p>
             @elseif($pesanan->pembayaran->status_bayar === 'berhasil')
                 <div class="eyebrow">Pembayaran berhasil</div>
-                <h2 class="h5">Pesanan sudah masuk antrean dapur</h2>
+                <h2 class="h5">Pesanan sedang diproses di dapur</h2>
                 <p class="text-muted">Terima kasih. Status pesanan akan diperbarui otomatis.</p>
             @elseif($pesanan->pembayaran->metode === 'qris')
                 <div class="eyebrow">Bayar dengan QRIS</div>
@@ -45,14 +50,14 @@
                 <p class="text-muted">Bayar tepat sebesar <strong class="text-white">Rp {{ number_format($pesanan->total_harga, 0, ',', '.') }}</strong>, lalu tunjukkan bukti pembayaran kepada kasir.</p>
                 <img class="payment-qr img-fluid rounded mb-3" src="{{ asset('qris.jpeg') }}" alt="QRIS Bento Kopi untuk pembayaran pesanan">
                 <div class="alert alert-warning text-start mb-0" role="status">
-                    QRIS ini adalah QR statis. Pembayaran belum terverifikasi otomatis. Kasir harus mengonfirmasi dana diterima sebelum pesanan masuk dapur.
+                    QRIS ini adalah QR statis. Pembayaran belum terverifikasi otomatis. Kasir harus mengonfirmasi dana diterima sebelum pesanan diproses dapur.
                 </div>
             @else
                 <div class="eyebrow">Bayar tunai</div>
                 <h2 class="h5">Lakukan pembayaran di kasir</h2>
                 <p class="text-muted">Bayar sebesar <strong class="text-white">Rp {{ number_format($pesanan->total_harga, 0, ',', '.') }}</strong> dan berikan nomor pesanan ini kepada kasir.</p>
                 <div class="payment-order-number">{{ $pesanan->nomor_pesanan }}</div>
-                <p class="small text-muted mt-3 mb-0">Pesanan baru diteruskan ke dapur setelah kasir mengonfirmasi pembayaran.</p>
+                <p class="small text-muted mt-3 mb-0">Pesanan mulai diproses dapur setelah kasir mengonfirmasi pembayaran.</p>
             @endif
             <a class="btn btn-outline-success w-100 mt-3" href="{{ route('pelanggan.status', $pesanan->nomor_pesanan) }}">Lihat status pesanan</a>
         </div></div>
@@ -61,7 +66,7 @@
 @endsection
 @push('scripts')
 <script>
-    @if($pesanan->pembayaran->status_bayar === 'menunggu' && $pesanan->status_pesanan !== 'dibatalkan')
+    @if($pesanan->pembayaran->status_bayar === 'menunggu' && !in_array($pesanan->status_pesanan, ['dibatalkan', 'selesai'], true) && !$sesiDitutup)
         setTimeout(() => location.reload(), 15000);
     @endif
 </script>

@@ -12,7 +12,7 @@ class MemberController extends Controller
     {
         $kategori = KategoriMenu::with(['menu' => fn ($q) => $q->where('tersedia', 1)->orderBy('nama_menu')])->get();
         $meja = Meja::orderBy('nomor_meja')->get();
-        $pesananMember = Pesanan::with(['meja', 'detail.menu', 'pembayaran'])
+        $pesananMember = Pesanan::with(['meja', 'detail.menu', 'pembayaran', 'member'])
             ->where('id_member', auth()->user()->id_pengguna);
         $aktif = (clone $pesananMember)
             ->whereIn('status_pesanan', ['menunggu_bayar', 'antre', 'diproses', 'siap'])
@@ -31,10 +31,7 @@ class MemberController extends Controller
             ->orderByDesc('waktu_pesan')
             ->paginate(10)
             ->withQueryString();
-        $riwayat->getCollection()->each(function (Pesanan $pesanan) {
-            $pesanan->sesi_meja_selesai = $pesanan->meja->status_meja === 'kosong'
-                || (int) $pesanan->siklus_meja !== (int) $pesanan->meja->siklus_penggunaan;
-        });
+        $riwayat->getCollection()->each(fn (Pesanan $pesanan) => $pesanan->sesi_meja_selesai = $pesanan->sesiMejaDitutup());
 
         return view('member.index', compact('kategori', 'meja', 'aktif', 'riwayat'));
     }
