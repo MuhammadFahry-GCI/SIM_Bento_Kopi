@@ -2,15 +2,19 @@
 @section('judul', 'Beranda Member')
 @section('isi')
 <div class="page-heading"><div><span class="eyebrow">Bento Kopi member</span><h1>Halo, {{ auth()->user()->nama_lengkap }}</h1><p>Pilih meja untuk mulai memesan, atau pindai kode QR di meja.</p></div></div>
+<div class="card mb-4"><div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
+    <div><strong>Ingin datang di waktu tertentu?</strong><div class="small text-muted">Pilih jadwal dan durasi booking 1–6 jam dengan pre-order minimal Rp50.000.</div></div>
+    <a class="btn btn-dark" href="{{ route('reservasi.index') }}">Lihat denah &amp; booking meja</a>
+</div></div>
 <div class="row g-3 mb-4">
     <div class="col-md-6"><div class="card h-100"><div class="card-body">
         <div class="text-muted small">Meja tersedia</div>
-        <div class="fs-3 fw-bold">{{ $meja->where('status_meja', 'kosong')->count() }}</div>
+        <div class="fs-3 fw-bold">{{ $meja->where('status_tampilan', 'tersedia')->count() }}</div>
         <div class="small text-muted">Tetap konfirmasi ketersediaan meja kepada kasir sebelum duduk.</div>
     </div></div></div>
     <div class="col-md-6"><div class="card h-100"><div class="card-body">
         <div class="text-muted small">Meja sedang terisi</div>
-        <div class="fs-3 fw-bold">{{ $meja->where('status_meja', 'terisi')->count() }}</div>
+        <div class="fs-3 fw-bold">{{ $meja->where('status_tampilan', 'terisi')->count() }}</div>
         <div class="small text-muted">Meja ditandai tersedia kembali oleh kasir setelah pelanggan meninggalkan tempat.</div>
     </div></div></div>
 </div>
@@ -22,17 +26,77 @@
                 <div class="card-body p-3">
                     <div class="fw-bold">Meja {{ $m->nomor_meja }}</div>
                     <div class="small text-muted">{{ $m->area }} · {{ $m->kapasitas }} kursi</div>
-                    <span class="badge mt-2 {{ $m->status_meja === 'terisi' ? 'bg-warning text-dark' : 'bg-success' }}">
-                        {{ $m->status_meja === 'terisi' ? 'Sedang terisi' : 'Tersedia' }}
+                    <span class="badge mt-2 {{ $m->status_tampilan === 'terisi' ? 'bg-warning text-dark' : ($m->status_tampilan === 'dipesan' ? 'bg-danger' : 'bg-success') }}">
+                        {{ $m->status_tampilan === 'terisi' ? 'Sedang terisi' : ($m->status_tampilan === 'dipesan' ? 'Dibooking' : 'Tersedia') }}
                     </span>
-                    <a href="{{ route('pelanggan.form', $m->nomor_meja) }}" class="btn btn-sm btn-outline-dark w-100 mt-2">
-                        {{ $m->status_meja === 'terisi' ? 'Tambah pesanan' : 'Pesan di meja ini' }}
-                    </a>
+                    @if($m->dapat_pesan_meja)
+                        <a href="{{ route('pelanggan.form', $m->nomor_meja) }}" class="btn btn-sm btn-outline-dark w-100 mt-2">
+                            {{ $m->status_tampilan === 'terisi' || $m->status_tampilan === 'dipesan' ? 'Tambah pesanan' : 'Pesan di meja ini' }}
+                        </a>
+                    @else
+                        <span class="d-block small text-danger mt-2">
+                            {{ $m->booking_pemilik ? 'Selesaikan pesanan booking sebelum tambah pesanan' : ($m->status_tampilan === 'terisi' ? 'Meja digunakan member lain' : 'Meja dibooking member lain') }}
+                        </span>
+                    @endif
                 </div>
             </div>
         </div>
     @endforeach
 </div>
+
+<section class="mb-5">
+    <div class="page-heading">
+        <div><span class="eyebrow">Jadwal kunjungan</span><h2>Booking meja Anda</h2><p>Meja tetap berstatus dibooking selama pesanan belum dibayar atau belum diterima. Setelah pesanan diterima, kasir mengosongkan meja saat pelanggan pergi.</p></div>
+    </div>
+    <div class="d-grid gap-3">
+        @forelse($reservasi as $booking)
+            @php($p = $booking->pesanan)
+            <article class="card"><div class="card-body">
+                <div class="d-flex flex-wrap justify-content-between align-items-start gap-2">
+                    <div>
+                        <h3 class="h5 mb-1">Meja {{ $booking->meja->nomor_meja }} · {{ $p->nomor_pesanan }}</h3>
+                        <div class="small">{{ $booking->waktu_mulai->format('d/m/Y H:i') }}–{{ $booking->waktu_selesai->format('H:i') }} · {{ $booking->durasi_jam }} jam</div>
+                        <div class="small text-muted">Pre-order Rp {{ number_format($p->total_harga, 0, ',', '.') }} · {{ $p->pembayaran?->status_bayar === 'berhasil' ? 'Lunas' : 'Menunggu pembayaran' }}</div>
+                        <div class="small mt-1" data-booking-timer
+                            data-start="{{ $booking->waktu_mulai->toIso8601String() }}"
+                            data-end="{{ $booking->waktu_selesai->toIso8601String() }}"
+                            data-checked-in="{{ $booking->waktu_diterima ? 'true' : 'false' }}"
+                            aria-live="polite"></div>
+                    </div>
+                    <span class="badge {{ $booking->waktu_diterima ? 'bg-success' : ($booking->waktu_mulai->isFuture() ? 'bg-info text-dark' : 'bg-danger') }}">
+                        {{ $booking->waktu_diterima ? 'Pesanan diterima · meja terisi' : ($booking->waktu_mulai->isFuture() ? 'Akan datang' : ($booking->waktu_checkin ? 'Check-in · menunggu pesanan' : 'Booking · menunggu pesanan')) }}
+                    </span>
+                </div>
+                <div class="small mt-2">
+                    @foreach($p->detail as $detail)
+                        {{ $detail->jumlah }}× {{ $detail->menu->nama_menu }}@if(!$loop->last), @endif
+                    @endforeach
+                </div>
+                @if($p->pembayaran?->status_bayar === 'menunggu')
+                    <a class="btn btn-sm btn-outline-success mt-3" href="{{ route('pelanggan.pembayaran', $p->nomor_pesanan) }}">Lanjutkan pembayaran</a>
+                @endif
+                @if($p->status_pesanan === 'siap' && $p->pembayaran?->status_bayar === 'berhasil' && !$booking->waktu_diterima && $booking->waktu_mulai->lte(now()) && $booking->waktu_selesai->gt(now()))
+                    <form method="POST" action="{{ route('member.pesanan.diterima', $p->id_pesanan) }}" class="mt-3">
+                        @csrf
+                        <button class="btn btn-success btn-sm">Pesanan sudah diambil / diantarkan</button>
+                    </form>
+                @elseif($booking->waktu_diterima)
+                    <span class="badge bg-success mt-3">Dikonfirmasi diterima · {{ $booking->waktu_diterima->format('H:i') }}</span>
+                @else
+                    <div class="small text-muted mt-3">Status pesanan: {{ [
+                        'menunggu_bayar' => 'menunggu pembayaran',
+                        'antre' => 'menunggu antrean dapur',
+                        'diproses' => 'sedang disiapkan',
+                        'siap' => 'siap disajikan',
+                        'disajikan' => 'sudah disajikan',
+                    ][$p->status_pesanan] ?? $p->status_pesanan }}</div>
+                @endif
+            </div></article>
+        @empty
+            <div class="card"><div class="card-body text-muted">Belum ada booking aktif. Pilih meja dan waktu kunjungan melalui denah.</div></div>
+        @endforelse
+    </div>
+</section>
 
 <section class="mb-5">
     <div class="page-heading">
@@ -56,6 +120,12 @@
                         {{ $detail->jumlah }}× {{ $detail->menu->nama_menu }}@if(!$loop->last), @endif
                     @endforeach
                 </div>
+                @if($p->status_pesanan === 'siap' && $p->pembayaran?->status_bayar === 'berhasil')
+                    <form method="POST" action="{{ route('member.pesanan.diterima', $p->id_pesanan) }}" class="mt-3">
+                        @csrf
+                        <button class="btn btn-success btn-sm">Pesanan sudah diambil / diantarkan</button>
+                    </form>
+                @endif
                 <a class="btn btn-sm btn-outline-success mt-3" href="{{ route('pelanggan.status', $p->nomor_pesanan) }}">Lihat status pesanan</a>
             </div></article>
         @empty
@@ -78,7 +148,7 @@
                         <div class="small text-muted">{{ $p->waktu_pesan->format('d/m/Y H:i') }} · Rp {{ number_format($p->total_harga, 0, ',', '.') }}</div>
                     </div>
                     <span class="badge {{ $p->status_pesanan === 'dibatalkan' ? 'bg-secondary' : 'bg-success' }}">
-                        {{ $p->status_pesanan === 'dibatalkan' ? 'Dibatalkan' : 'Selesai' }}
+                        {{ $p->status_pesanan === 'dibatalkan' ? 'Dibatalkan' : ($p->status_pesanan === 'disajikan' ? 'Sudah diterima' : 'Selesai') }}
                     </span>
                 </div>
                 <div class="small mt-2">

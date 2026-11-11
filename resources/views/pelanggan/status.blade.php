@@ -3,12 +3,14 @@
 @section('isi')
 @php
     $label = ['menunggu_bayar' => 'Menunggu pembayaran di kasir', 'antre' => 'Sedang disiapkan', 'diproses' => 'Sedang disiapkan',
-              'siap' => 'Siap, akan segera diantar', 'disajikan' => 'Sudah disajikan', 'selesai' => 'Selesai', 'dibatalkan' => 'Dibatalkan'];
+              'siap' => 'Siap, akan segera diantar', 'disajikan' => 'Sudah diterima member', 'selesai' => 'Selesai', 'dibatalkan' => 'Dibatalkan'];
     if ($pesanan->sesiMejaDitutup() && $pesanan->status_pesanan !== 'dibatalkan') {
         $label[$pesanan->status_pesanan] = 'Selesai';
     }
 @endphp
-<div class="page-heading"><div><span class="eyebrow">Pembaruan pesanan</span><h1>Status pesanan</h1><p>Nomor {{ $pesanan->nomor_pesanan }} · Pemesan {{ $pesanan->nama_pemesan_tampilan ?: 'Tidak dicantumkan' }} · Meja {{ $pesanan->meja->nomor_meja }}</p></div></div>
+<div class="page-heading"><div><span class="eyebrow">Pembaruan pesanan</span><h1>Status pesanan</h1><p>Nomor {{ $pesanan->nomor_pesanan }} · Pemesan {{ $pesanan->nama_pemesan_tampilan ?: 'Tidak dicantumkan' }} · Meja {{ $pesanan->meja->nomor_meja }}</p>
+    @if($pesanan->reservasi)<p class="small text-muted mb-0">Booking: {{ $pesanan->reservasi->waktu_mulai->format('d/m/Y H:i') }}–{{ $pesanan->reservasi->waktu_selesai->format('H:i') }}</p>@endif
+</div></div>
 <div class="card shadow-sm"><div class="card-body">
     <h4>Detail pesanan</h4>
     <p class="mb-1">Meja <strong>{{ $pesanan->meja->nomor_meja }}</strong></p>

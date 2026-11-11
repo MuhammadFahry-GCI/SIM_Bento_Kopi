@@ -8,6 +8,7 @@ use App\Models\Meja;
 use App\Models\Menu;
 use App\Models\Pembayaran;
 use App\Models\Pesanan;
+use App\Models\ReservasiMeja;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -18,15 +19,34 @@ class PesananService
      * - Pembayaran pelanggan tetap menunggu verifikasi kasir, termasuk QRIS statis.
      * - Pesanan kasir hanya lunas jika kasir memilih status berhasil.
      */
-    public static function buat(Meja $meja, array $data, ?int $idKasir = null): Pesanan
+    public static function buat(Meja $meja, array $data, ?int $idKasir = null, bool $reservasi = false): Pesanan
     {
         $items = collect($data['items'] ?? [])->filter(fn ($q) => (int) $q > 0)->map(fn ($q) => (int) $q);
         if ($items->isEmpty()) {
             throw ValidationException::withMessages(['items' => 'Pilih minimal satu menu.']);
         }
 
-        return DB::transaction(function () use ($meja, $data, $idKasir, $items) {
+        return DB::transaction(function () use ($meja, $data, $idKasir, $items, $reservasi) {
             $meja = Meja::query()->lockForUpdate()->findOrFail($meja->id_meja);
+            if (!$reservasi) {
+                if ($idKasir !== null) {
+                    $adaBookingAktif = ReservasiMeja::query()
+                        ->where('id_meja', $meja->id_meja)
+                        ->where('status_reservasi', 'dipesan')
+                        ->where('waktu_selesai', '>', now())
+                        ->lockForUpdate()
+                        ->exists();
+                    $mejaTerkunciUntukKasir = $meja->status_meja !== 'kosong' || $adaBookingAktif;
+                } else {
+                    $mejaTerkunciUntukKasir = self::bookingMengunciPesanan($meja, true);
+                }
+                if ($mejaTerkunciUntukKasir) {
+                    throw ValidationException::withMessages([
+                        'id_meja' => self::pesanMejaTerkunci(),
+                    ]);
+                }
+            }
+            $pengguna = auth()->user();
             $menus = Menu::whereIn('id_menu', $items->keys())->where('tersedia', 1)->get()->keyBy('id_menu');
             if ($menus->count() !== $items->count()) {
                 throw ValidationException::withMessages(['items' => 'Ada menu yang tidak tersedia.']);
@@ -35,7 +55,6 @@ class PesananService
             $metode = $data['metode'];
             $statusBayar = $idKasir !== null ? ($data['status_bayar'] ?? 'menunggu') : 'menunggu';
             $langsungBayar = $statusBayar === 'berhasil';
-            $pengguna = auth()->user();
             $idMember = $idKasir === null && $pengguna?->peran === 'member'
                 ? $pengguna->id_pengguna
                 : null;
@@ -65,6 +84,11 @@ class PesananService
                 ]);
                 $total += $menu->harga * $jumlah;
             }
+            if ($reservasi && $total < 50000) {
+                throw ValidationException::withMessages([
+                    'items' => 'Total pre-order untuk booking minimal Rp50.000.',
+                ]);
+            }
             $pesanan->update(['total_harga' => $total]);
 
             Pembayaran::create([
@@ -77,7 +101,9 @@ class PesananService
                 'id_penerima' => $langsungBayar ? $idKasir : null,
             ]);
 
-            $meja->update(['status_meja' => 'terisi']);
+            if (!$reservasi) {
+                $meja->update(['status_meja' => 'terisi']);
+            }
             LogAktivitas::catat(
                 'buat_pesanan',
                 'pesanan',
@@ -87,5 +113,71 @@ class PesananService
 
             return $pesanan;
         });
+    }
+
+    public static function bookingMengunciPesanan(Meja $meja, bool $lock = false, bool $kasir = false): bool
+    {
+        $pengguna = auth()->user();
+        if ($kasir) {
+            if ($meja->status_meja !== 'kosong') {
+                return true;
+            }
+            $queryBooking = ReservasiMeja::query()
+                ->where('id_meja', $meja->id_meja)
+                ->where('status_reservasi', 'dipesan')
+                ->where('waktu_selesai', '>', now());
+            if ($lock) {
+                $queryBooking->lockForUpdate();
+            }
+
+            return $queryBooking->exists();
+        }
+
+        if ($meja->status_meja === 'terisi') {
+            $queryPesanan = Pesanan::query()
+                ->where('id_meja', $meja->id_meja)
+                ->where('siklus_meja', $meja->siklus_penggunaan)
+                ->where('status_pesanan', '<>', 'dibatalkan')
+                ->whereNotNull('id_member');
+            if ($lock) {
+                $queryPesanan->lockForUpdate();
+            }
+            $pemilikSesi = $queryPesanan->pluck('id_member')->unique();
+            if ($pemilikSesi->isNotEmpty()) {
+                if (
+                    $pengguna?->peran !== 'member'
+                    || $pemilikSesi->contains(fn ($idMember) => (int) $idMember !== (int) $pengguna->id_pengguna)
+                ) {
+                    return true;
+                }
+            }
+        }
+
+        $queryBooking = ReservasiMeja::query()
+            ->where('id_meja', $meja->id_meja)
+            ->where('status_reservasi', 'dipesan')
+            ->where('waktu_selesai', '>', now());
+        if ($lock) {
+            $queryBooking->lockForUpdate();
+        }
+        $bookings = $queryBooking->get();
+        if ($bookings->isEmpty()) {
+            return false;
+        }
+        if ($pengguna?->peran !== 'member') {
+            return true;
+        }
+
+        $pemilikBookingSudahMenerimaPesanan = ($kasir || $pengguna?->peran === 'member')
+            && $meja->status_meja === 'terisi'
+            && $bookings->every(fn (ReservasiMeja $booking) => $booking->waktu_diterima !== null
+                && (int) $booking->id_member === (int) $pengguna->id_pengguna);
+
+        return !$pemilikBookingSudahMenerimaPesanan;
+    }
+
+    public static function pesanMejaTerkunci(): string
+    {
+        return 'Meja sedang dibooking oleh member lain atau pesanan booking belum diterima. Pesanan tambahan belum dapat dibuat.';
     }
 }

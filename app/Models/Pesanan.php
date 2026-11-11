@@ -23,6 +23,7 @@ class Pesanan extends Model
     public function detail(): HasMany { return $this->hasMany(DetailPesanan::class, 'id_pesanan', 'id_pesanan'); }
     public function pembayaran(): HasOne { return $this->hasOne(Pembayaran::class, 'id_pesanan', 'id_pesanan'); }
     public function keluhan(): HasMany { return $this->hasMany(Keluhan::class, 'id_pesanan', 'id_pesanan'); }
+    public function reservasi(): HasOne { return $this->hasOne(ReservasiMeja::class, 'id_pesanan', 'id_pesanan'); }
 
     public function getNamaPemesanTampilanAttribute(): ?string
     {
@@ -31,20 +32,48 @@ class Pesanan extends Model
 
     public function scopeDalamSesiMejaAktif(Builder $query): Builder
     {
-        return $query->whereHas('meja', fn (Builder $meja) => $meja
-            ->where('meja.status_meja', 'terisi')
-            ->whereColumn('pesanan.siklus_meja', 'meja.siklus_penggunaan'));
+        return $query->where(function (Builder $query) {
+            $query->whereHas('meja', fn (Builder $meja) => $meja
+                ->where('meja.status_meja', 'terisi')
+                ->whereColumn('pesanan.siklus_meja', 'meja.siklus_penggunaan'))
+                ->orWhereHas('reservasi', fn (Builder $reservasi) => $reservasi
+                    ->where('status_reservasi', 'dipesan')
+                    ->where('waktu_mulai', '<=', now())
+                    ->where('waktu_selesai', '>', now()));
+        });
+    }
+
+    public function scopeBisaDitanganiKasir(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query) {
+            $query->dalamSesiMejaAktif()
+                ->orWhereHas('reservasi', fn (Builder $reservasi) => $reservasi
+                    ->where('status_reservasi', 'dipesan')
+                    ->where('waktu_selesai', '>', now()));
+        });
     }
 
     public function scopeSesiMejaDitutup(Builder $query): Builder
     {
-        return $query->whereDoesntHave('meja', fn (Builder $meja) => $meja
-            ->where('meja.status_meja', 'terisi')
-            ->whereColumn('pesanan.siklus_meja', 'meja.siklus_penggunaan'));
+        return $query
+            ->whereDoesntHave('meja', fn (Builder $meja) => $meja
+                ->where('meja.status_meja', 'terisi')
+                ->whereColumn('pesanan.siklus_meja', 'meja.siklus_penggunaan'))
+            ->whereDoesntHave('reservasi', fn (Builder $reservasi) => $reservasi
+                ->where('status_reservasi', 'dipesan')
+                ->where('waktu_selesai', '>', now()));
     }
 
     public function sesiMejaDitutup(): bool
     {
+        if (
+            $this->reservasi
+            && $this->reservasi->status_reservasi === 'dipesan'
+            && $this->reservasi->waktu_selesai->isFuture()
+        ) {
+            return false;
+        }
+
         return $this->meja->status_meja === 'kosong'
             || (int) $this->siklus_meja !== (int) $this->meja->siklus_penggunaan;
     }

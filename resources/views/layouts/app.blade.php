@@ -155,7 +155,7 @@
 <body>
 <header class="app-navbar">
     <div class="container app-navbar-inner">
-        <a class="brand-lockup" href="{{ auth()->check() ? route('beranda') : route('login') }}" aria-label="Bento Kopi - beranda">
+        <a class="brand-lockup" href="{{ route('reservasi.index') }}" aria-label="Bento Kopi - beranda">
             <img src="{{ asset('images.jpg') }}" alt="">
             <span class="brand-copy"><strong>BENTO KOPI</strong><span>SIM • PEKANBARU</span></span>
         </a>
@@ -170,6 +170,7 @@
                     <a class="{{ request()->routeIs('dapur.index') ? 'active' : '' }}" href="{{ route('dapur.index') }}">Antrean dapur</a>
                 @elseif($peran === 'member')
                     <a class="{{ request()->routeIs('member.index') ? 'active' : '' }}" href="{{ route('member.index') }}">Beranda member</a>
+                    <a class="{{ request()->routeIs('reservasi.*') ? 'active' : '' }}" href="{{ route('reservasi.index') }}">Booking meja</a>
                 @elseif($peran === 'pelayan')
                     <a class="{{ request()->routeIs('pelayan.index') ? 'active' : '' }}" href="{{ route('pelayan.index') }}">Penyajian</a>
                 @elseif(in_array($peran, ['manajer', 'group']))
@@ -192,6 +193,17 @@
                 <form method="POST" action="{{ route('logout') }}">@csrf
                     <button class="btn btn-sm btn-outline-danger">Keluar</button>
                 </form>
+            </div>
+        @else
+            @if(request()->routeIs('reservasi.index'))
+                <nav class="app-nav" aria-label="Navigasi utama">
+                    <a href="#tentang">Tentang</a>
+                    <a href="#pengalaman">Pengalaman</a>
+                    <a href="#booking">Reservasi</a>
+                </nav>
+            @endif
+            <div class="app-user">
+                <a class="btn btn-dark px-4" href="{{ route('login') }}">Login</a>
             </div>
         @endauth
     </div>
@@ -277,6 +289,30 @@
         toggle.title = visible ? 'Sembunyikan kata sandi' : 'Tampilkan kata sandi';
         toggle.setAttribute('aria-pressed', String(visible));
     });
+
+    const formatBookingTime = (seconds) => {
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        return hours > 0 ? `${hours}j ${minutes}m` : `${minutes}m`;
+    };
+    const updateBookingTimers = () => {
+        const now = Date.now();
+        document.querySelectorAll('[data-booking-timer]').forEach((timer) => {
+            const start = new Date(timer.dataset.start).getTime();
+            const end = new Date(timer.dataset.end).getTime();
+            if (now < start) {
+                timer.textContent = `Mulai dalam ${formatBookingTime(Math.ceil((start - now) / 1000))}`;
+            } else if (now < end) {
+                timer.textContent = `Sisa waktu booking: ${formatBookingTime(Math.ceil((end - now) / 1000))}`;
+            } else {
+                timer.textContent = timer.dataset.checkedIn === 'true'
+                    ? 'Waktu booking habis · minta kasir mengosongkan meja'
+                    : 'Waktu booking berakhir';
+            }
+        });
+    };
+    updateBookingTimers();
+    setInterval(updateBookingTimers, 1000);
 </script>
 </body>
 </html>

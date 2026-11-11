@@ -3,13 +3,19 @@
 @section('isi')
 <div class="page-heading">
     <div><span class="eyebrow">Operasional</span><h1>Kasir</h1><p>Pantau pembayaran masuk dan pesanan aktif.</p></div>
-    <span class="badge text-bg-light">{{ $menunggu->count() }} menunggu pembayaran</span>
+    <div class="d-flex flex-wrap align-items-center gap-2">
+        <span class="badge text-bg-light">{{ $menunggu->count() }} menunggu pembayaran</span>
+    </div>
 </div>
 <h5 class="mb-3">Pesanan menunggu pembayaran</h5>
 @forelse($menunggu as $p)
     <div class="card mb-2"><div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
         <div><strong>{{ $p->nomor_pesanan }}</strong> - Meja {{ $p->meja->nomor_meja }}
             <div class="small">Pemesan: {{ $p->nama_pemesan_tampilan ?: 'Tidak dicantumkan' }}</div>
+            @if($p->reservasi)
+                <div class="small text-muted">Booking {{ $p->reservasi->waktu_mulai->format('d/m/Y H:i') }}–{{ $p->reservasi->waktu_selesai->format('H:i') }} · {{ $p->reservasi->durasi_jam }} jam</div>
+                <div class="small" data-booking-timer data-start="{{ $p->reservasi->waktu_mulai->toIso8601String() }}" data-end="{{ $p->reservasi->waktu_selesai->toIso8601String() }}" data-checked-in="{{ $p->reservasi->waktu_diterima ? 'true' : 'false' }}" aria-live="polite"></div>
+            @endif
             <div class="small text-muted">{{ strtoupper($p->pembayaran->metode) }} · Rp {{ number_format($p->total_harga, 0, ',', '.') }} | {{ $p->waktu_pesan->format('H:i') }}</div></div>
         <div class="d-flex gap-2">
             @if($p->pembayaran->metode === 'qris')
@@ -29,10 +35,22 @@
     <div class="card mb-2"><div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-2">
         <div><strong>{{ $p->nomor_pesanan }}</strong> - Meja {{ $p->meja->nomor_meja }}
             <div class="small">Pemesan: {{ $p->nama_pemesan_tampilan ?: 'Tidak dicantumkan' }}</div>
+            @if($p->reservasi)
+                <div class="small text-muted">Booking {{ $p->reservasi->waktu_mulai->format('d/m/Y H:i') }}–{{ $p->reservasi->waktu_selesai->format('H:i') }} · {{ $p->reservasi->durasi_jam }} jam</div>
+                <div class="small" data-booking-timer data-start="{{ $p->reservasi->waktu_mulai->toIso8601String() }}" data-end="{{ $p->reservasi->waktu_selesai->toIso8601String() }}" data-checked-in="{{ $p->reservasi->waktu_diterima ? 'true' : 'false' }}" aria-live="polite"></div>
+            @endif
             <span class="badge bg-secondary">{{ $p->status_pesanan }}</span>
             @if($p->pembayaran)<span class="badge text-bg-light">{{ $p->pembayaran->metode === 'qris' ? 'QRIS · cashless' : 'Tunai' }} · {{ $p->pembayaran->status_bayar === 'berhasil' ? 'Lunas' : 'Belum lunas' }}</span>@endif
         </div>
         @include('kasir._batal', ['p' => $p])
+        @if($p->reservasi && !$p->reservasi->waktu_checkin && $p->reservasi->waktu_mulai->lte(now()) && $p->reservasi->waktu_selesai->gt(now()) && $p->pembayaran?->status_bayar === 'berhasil')
+            <form method="POST" action="{{ route('kasir.reservasi.mulai', $p->reservasi->id_reservasi) }}" class="w-100 mt-2">
+                @csrf
+                <button class="btn btn-sm btn-outline-success">Catat kedatangan pelanggan</button>
+            </form>
+        @elseif($p->reservasi?->waktu_checkin)
+            <div class="small text-success mt-2">Pelanggan check-in {{ $p->reservasi->waktu_checkin->format('H:i') }} · menunggu pesanan diterima</div>
+        @endif
     </div></div>
 @empty
     <p class="text-muted">Tidak ada.</p>
@@ -108,41 +126,79 @@
 
 <section class="mt-4">
     <div class="page-heading">
-        <div><span class="eyebrow">Kontrol meja</span><h2>Meja sedang terisi</h2>
-            <p>Periksa pelanggan yang masih menggunakan meja. Setelah pelanggan meninggalkan tempat, tandai meja sebagai tersedia.</p>
+        <div><span class="eyebrow">Kontrol meja</span><h2>Status seluruh meja</h2>
+            <p>Denah operasional seluruh meja, status penggunaan, serta nama dan jadwal booking. Kosongkan meja setelah pelanggan pergi.</p>
         </div>
     </div>
-    <div class="row g-2">
-        @forelse($mejaTerisi as $m)
-            <div class="col-sm-6 col-lg-4">
-                <div class="card h-100"><div class="card-body">
-                    <div class="d-flex justify-content-between gap-2">
-                        <strong>Meja {{ $m->nomor_meja }}</strong>
-                        <span class="badge {{ $m->jumlah_pesanan_aktif > 0 ? 'bg-warning text-dark' : 'bg-success' }}">
-                            {{ $m->jumlah_pesanan_aktif > 0 ? $m->jumlah_pesanan_aktif . ' pesanan aktif' : 'Tidak ada pesanan aktif' }}
-                        </span>
-                    </div>
-                    <div class="small text-muted mt-1">{{ ucfirst($m->area) }} · {{ $m->kapasitas }} kursi</div>
-                    <form method="POST" action="{{ route('kasir.meja.kosongkan', $m->id_meja) }}" class="mt-3"
-                        data-confirm="Pastikan pelanggan sudah meninggalkan meja ini sebelum status diubah."
-                        data-confirm-title="Buka kembali meja?"
-                        data-confirm-button="Ya, tandai tersedia">
-                        @csrf
-                        <button class="btn btn-sm btn-outline-success w-100">
-                            Tandai meja tersedia
-                        </button>
-                    </form>
-                    @if($m->jumlah_pesanan_aktif > 0)
-                        <div class="small text-muted mt-2">Jika meja dibuka kembali, pesanan sesi ini masuk riwayat dan tidak dilanjutkan dari antrean. Klik hanya setelah pelanggan pergi.</div>
-                    @else
-                        <div class="small text-muted mt-2">Jika pelanggan sudah pergi, klik tombol untuk memperbarui ketersediaan meja.</div>
-                    @endif
-                </div></div>
+    <style>
+        .cashier-floor-area { margin-bottom: 1.5rem; }
+        .cashier-floor-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .8rem; }
+        .cashier-floor-table { border: 1px solid var(--bento-border); border-radius: 15px; background: var(--bento-surface); }
+        .cashier-floor-table.available { border-color: rgba(67,197,139,.45); }
+        .cashier-floor-table.booked { border-color: rgba(239,68,68,.72); background: rgba(185,28,28,.1); }
+        .cashier-floor-table.occupied { border-color: rgba(220,95,85,.55); background: rgba(150,53,48,.1); }
+        .cashier-floor-detail { color: var(--bento-muted); font-size: .79rem; line-height: 1.5; }
+    </style>
+    @forelse($mejaOutlet->groupBy('area') as $area => $mejaArea)
+        <section class="cashier-floor-area">
+            <h3 class="h6 text-uppercase text-muted">{{ ucfirst($area) }}</h3>
+            <div class="cashier-floor-grid">
+                @foreach($mejaArea as $m)
+                    @php
+                        $booking = $m->booking_aktif;
+                        $pemesanBooking = $booking
+                            ? ($booking->member?->nama_lengkap ?? $booking->kasir?->nama_lengkap ?? $booking->nama_pemesan)
+                            : null;
+                        $jumlahPesananSesi = $m->pesanan_sesi->count();
+                        $namaPelangganSesi = $m->pesanan_sesi
+                            ->pluck('nama_pemesan')
+                            ->filter()
+                            ->unique()
+                            ->implode(', ');
+                    @endphp
+                    <article class="cashier-floor-table {{ $m->status_operasional === 'terisi' ? 'occupied' : ($m->status_operasional === 'dipesan' ? 'booked' : 'available') }}">
+                        <div class="p-3">
+                            <div class="d-flex justify-content-between align-items-start gap-2">
+                                <div>
+                                    <strong>Meja {{ $m->nomor_meja }}</strong>
+                                    <div class="cashier-floor-detail">{{ $m->kapasitas }} kursi</div>
+                                </div>
+                                <span class="badge {{ $m->status_operasional === 'terisi' ? 'bg-warning text-dark' : ($m->status_operasional === 'dipesan' ? 'bg-danger' : 'bg-success') }}">
+                                    {{ $m->status_operasional === 'terisi' ? 'Terisi' : ($m->status_operasional === 'dipesan' ? 'Dibooking' : 'Tersedia') }}
+                                </span>
+                            </div>
+                            @if($booking)
+                                <div class="cashier-floor-detail mt-2">
+                                    <strong>Dibooking oleh {{ $pemesanBooking }}</strong><br>
+                                    {{ $booking->waktu_mulai->format('d/m/Y H:i') }}–{{ $booking->waktu_selesai->format('H:i') }} · {{ $booking->durasi_jam }} jam<br>
+                                    Pesanan {{ $booking->pesanan->nomor_pesanan }} · {{ $booking->pesanan->pembayaran?->status_bayar === 'berhasil' ? 'Lunas' : 'Belum lunas' }}
+                                </div>
+                            @endif
+                            @if($m->status_operasional === 'terisi')
+                                <div class="cashier-floor-detail mt-2">
+                                    {{ $jumlahPesananSesi }} pesanan di sesi ini
+                                    @if($namaPelangganSesi)<br>Pemesan: {{ $namaPelangganSesi }}@endif
+                                </div>
+                                <form method="POST" action="{{ route('kasir.meja.kosongkan', $m->id_meja) }}" class="mt-3"
+                                    data-confirm="Pastikan pelanggan sudah meninggalkan meja ini sebelum status diubah."
+                                    data-confirm-title="Buka kembali meja?"
+                                    data-confirm-button="Ya, tandai tersedia">
+                                    @csrf
+                                    <button class="btn btn-sm btn-outline-success w-100">Tandai meja tersedia</button>
+                                </form>
+                            @elseif($booking)
+                                <div class="cashier-floor-detail mt-2">Meja dikunci sampai booking berakhir atau pelanggan check-in dan pesanan diterima.</div>
+                            @else
+                                <div class="cashier-floor-detail mt-2">Siap dipilih untuk pesanan baru.</div>
+                            @endif
+                        </div>
+                    </article>
+                @endforeach
             </div>
+        </section>
         @empty
-            <div class="col-12"><div class="card"><div class="card-body text-muted">Semua meja berstatus tersedia.</div></div></div>
+            <div class="card"><div class="card-body text-muted">Belum ada data meja.</div></div>
         @endforelse
-    </div>
 </section>
 
 <section class="mt-5">

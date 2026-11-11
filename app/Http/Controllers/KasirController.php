@@ -6,6 +6,7 @@ use App\Models\KategoriMenu;
 use App\Models\LogAktivitas;
 use App\Models\Meja;
 use App\Models\Pesanan;
+use App\Models\ReservasiMeja;
 use App\Services\PesananService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,14 +15,20 @@ class KasirController extends Controller
 {
     public function index()
     {
-        $menunggu = Pesanan::with(['meja', 'pembayaran', 'member'])
-            ->dalamSesiMejaAktif()
+        $menunggu = Pesanan::with(['meja', 'pembayaran', 'member', 'reservasi'])
+            ->bisaDitanganiKasir()
             ->where('status_pesanan', 'menunggu_bayar')
             ->orderBy('waktu_pesan')
             ->get();
-        $aktif = Pesanan::with(['meja', 'pembayaran', 'member'])
-            ->dalamSesiMejaAktif()
-            ->whereIn('status_pesanan', ['antre', 'diproses', 'siap'])
+        $aktif = Pesanan::with(['meja', 'pembayaran', 'member', 'reservasi'])
+            ->bisaDitanganiKasir()
+            ->where(function ($query) {
+                $query->whereIn('status_pesanan', ['antre', 'diproses', 'siap'])
+                    ->orWhere(function ($query) {
+                        $query->where('status_pesanan', 'disajikan')
+                            ->whereHas('reservasi', fn ($reservasi) => $reservasi->whereNotNull('waktu_diterima'));
+                    });
+            })
             ->orderBy('waktu_pesan')
             ->get();
         $riwayatSesi = Pesanan::with(['meja', 'pembayaran', 'detail.menu', 'member'])
@@ -37,18 +44,47 @@ class KasirController extends Controller
             ->whereIn('id_pesanan', $aktivitas->pluck('id_entitas')->filter()->unique())
             ->get()
             ->keyBy('id_pesanan');
-        $mejaTerisi = Meja::where('status_meja', 'terisi')
-            ->withCount(['pesanan as jumlah_pesanan_aktif' => fn ($query) => $query
-                ->whereIn('status_pesanan', ['menunggu_bayar', 'antre', 'diproses', 'siap'])
-                ->whereColumn('pesanan.siklus_meja', 'meja.siklus_penggunaan')])
+        $reservasiPerMeja = ReservasiMeja::with(['member', 'kasir', 'pesanan.pembayaran'])
+            ->where('status_reservasi', 'dipesan')
+            ->where('waktu_selesai', '>', now())
+            ->orderBy('waktu_mulai')
+            ->get()
+            ->groupBy('id_meja');
+        $mejaOutlet = Meja::with(['pesanan' => fn ($query) => $query
+            ->with(['member', 'reservasi', 'detail.menu'])
+            ->whereIn('status_pesanan', ['menunggu_bayar', 'antre', 'diproses', 'siap', 'disajikan'])
+            ->orderByDesc('waktu_pesan')])
+            ->orderBy('area')
             ->orderBy('nomor_meja')
             ->get();
-        return view('kasir.index', compact('menunggu', 'aktif', 'riwayatSesi', 'aktivitas', 'pesananAktivitas', 'mejaTerisi'));
+        $mejaOutlet->each(function (Meja $meja) use ($reservasiPerMeja) {
+            $meja->pesanan_sesi = $meja->pesanan
+                ->where('siklus_meja', $meja->siklus_penggunaan)
+                ->values();
+            $meja->booking_aktif = $reservasiPerMeja->get($meja->id_meja)?->first();
+            $meja->status_operasional = $meja->status_meja === 'terisi'
+                ? 'terisi'
+                : ($meja->booking_aktif ? 'dipesan' : 'tersedia');
+        });
+        return view('kasir.index', compact('menunggu', 'aktif', 'riwayatSesi', 'aktivitas', 'pesananAktivitas', 'mejaOutlet'));
     }
 
     public function baru()
     {
         $meja = Meja::orderBy('nomor_meja')->get();
+        $reservasiPerMeja = ReservasiMeja::with(['member', 'kasir', 'pesanan.pembayaran'])
+            ->where('status_reservasi', 'dipesan')
+            ->where('waktu_selesai', '>', now())
+            ->orderBy('waktu_mulai')
+            ->get()
+            ->groupBy('id_meja');
+        $meja->each(function (Meja $item) use ($reservasiPerMeja) {
+            $item->booking_aktif = $reservasiPerMeja->get($item->id_meja)?->first();
+            $item->status_operasional = $item->status_meja === 'terisi'
+                ? 'terisi'
+                : ($item->booking_aktif ? 'dipesan' : 'tersedia');
+            $item->dapat_dipilih = $item->status_operasional === 'tersedia';
+        });
         $kategori = KategoriMenu::with(['menu' => fn ($q) => $q->where('tersedia', 1)->orderBy('nama_menu')])->get();
         return view('kasir.baru', compact('meja', 'kategori'));
     }
@@ -80,7 +116,7 @@ class KasirController extends Controller
                 $p->status_pesanan !== 'menunggu_bayar'
                 || !$p->pembayaran
                 || $p->pembayaran->status_bayar !== 'menunggu'
-                || !Pesanan::query()->dalamSesiMejaAktif()->whereKey($p->id_pesanan)->exists()
+                || !Pesanan::query()->bisaDitanganiKasir()->whereKey($p->id_pesanan)->exists()
             ) {
                 return 'tidak_aktif';
             }
@@ -108,6 +144,48 @@ class KasirController extends Controller
         return back()->with('ok', 'Pembayaran dikonfirmasi. Pesanan langsung diproses di dapur.');
     }
 
+    public function mulaiReservasi(int $id)
+    {
+        $dimulai = DB::transaction(function () use ($id) {
+            $reservasi = ReservasiMeja::query()->lockForUpdate()->findOrFail($id);
+            $pesanan = Pesanan::query()->with('pembayaran')->lockForUpdate()->findOrFail($reservasi->id_pesanan);
+            $meja = Meja::query()->lockForUpdate()->findOrFail($reservasi->id_meja);
+
+            if (
+                $reservasi->status_reservasi !== 'dipesan'
+                || $reservasi->waktu_checkin !== null
+                || $reservasi->waktu_mulai->isFuture()
+                || !$reservasi->waktu_selesai->isFuture()
+                || $pesanan->status_pesanan === 'dibatalkan'
+                || $pesanan->pembayaran?->status_bayar !== 'berhasil'
+            ) {
+                return 'tidak_aktif';
+            }
+            if ($meja->status_meja !== 'kosong') {
+                return 'meja_terisi';
+            }
+
+            $reservasi->update(['waktu_checkin' => now()]);
+            LogAktivitas::catat(
+                'kedatangan_reservasi',
+                'reservasi_meja',
+                $reservasi->id_reservasi,
+                $pesanan->nomor_pesanan . ' - pelanggan check-in; meja tetap dibooking sampai pesanan diterima'
+            );
+
+            return true;
+        });
+
+        if ($dimulai === 'meja_terisi') {
+            return back()->with('error', 'Meja masih digunakan pelanggan lain dan belum dapat dimulai.');
+        }
+        if ($dimulai !== true) {
+            return back()->with('error', 'Sesi booking belum dapat dimulai. Periksa jadwal dan status pembayarannya.');
+        }
+
+        return back()->with('ok', 'Sesi booking dimulai dan meja ditandai sedang terisi.');
+    }
+
     public function kosongkanMeja(int $id)
     {
         $berhasilDikosongkan = DB::transaction(function () use ($id) {
@@ -121,6 +199,12 @@ class KasirController extends Controller
                 'status_meja' => 'kosong',
                 'siklus_penggunaan' => $siklusMejaDitutup + 1,
             ]);
+            ReservasiMeja::query()
+                ->where('id_meja', $meja->id_meja)
+                ->where('status_reservasi', 'dipesan')
+                ->whereNotNull('waktu_diterima')
+                ->whereHas('pesanan', fn ($query) => $query->where('siklus_meja', $siklusMejaDitutup))
+                ->update(['waktu_selesai' => now()]);
             $pesananSesiDitutup = Pesanan::where('id_meja', $meja->id_meja)
                 ->where('siklus_meja', $siklusMejaDitutup)
                 ->with('pembayaran')

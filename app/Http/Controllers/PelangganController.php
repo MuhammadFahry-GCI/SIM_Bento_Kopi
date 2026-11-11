@@ -13,6 +13,9 @@ class PelangganController extends Controller
     public function form(string $nomor)
     {
         $meja = Meja::where('nomor_meja', $nomor)->firstOrFail();
+        if (PesananService::bookingMengunciPesanan($meja, false, auth()->user()?->peran === 'kasir')) {
+            return back()->with('error', PesananService::pesanMejaTerkunci());
+        }
         $kategori = KategoriMenu::with(['menu' => fn ($q) => $q->where('tersedia', 1)->orderBy('nama_menu')])->get();
         return view('pelanggan.pesan', compact('meja', 'kategori'));
     }
@@ -20,6 +23,12 @@ class PelangganController extends Controller
     public function kirim(Request $request, string $nomor)
     {
         $meja = Meja::where('nomor_meja', $nomor)->firstOrFail();
+        if (PesananService::bookingMengunciPesanan($meja, false, $request->user()?->peran === 'kasir')) {
+            return back()
+                ->withInput()
+                ->with('error', PesananService::pesanMejaTerkunci());
+        }
+
         $data = $request->validate([
             'items' => 'required|array',
             'items.*' => 'nullable|integer|min:0|max:20',

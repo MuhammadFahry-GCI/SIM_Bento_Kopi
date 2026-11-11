@@ -2,7 +2,9 @@
 @section('judul', 'Pembayaran ' . $pesanan->nomor_pesanan)
 @section('isi')
 <div class="page-heading">
-    <div><span class="eyebrow">Pembayaran pesanan</span><h1>{{ $pesanan->nomor_pesanan }}</h1><p>Pemesan {{ $pesanan->nama_pemesan_tampilan ?: 'Tidak dicantumkan' }} · Meja {{ $pesanan->meja->nomor_meja }} · {{ $pesanan->waktu_pesan->format('d/m/Y H:i') }}</p></div>
+    <div><span class="eyebrow">{{ $pesanan->reservasi ? 'Pembayaran pre-order booking' : 'Pembayaran pesanan' }}</span><h1>{{ $pesanan->nomor_pesanan }}</h1><p>Pemesan {{ $pesanan->nama_pemesan_tampilan ?: 'Tidak dicantumkan' }} · Meja {{ $pesanan->meja->nomor_meja }} · {{ $pesanan->waktu_pesan->format('d/m/Y H:i') }}</p>
+        @if($pesanan->reservasi)<p class="small text-muted mb-0">Booking: {{ $pesanan->reservasi->waktu_mulai->format('d/m/Y H:i') }}–{{ $pesanan->reservasi->waktu_selesai->format('H:i') }}</p>@endif
+    </div>
     @php $sesiDitutup = $pesanan->sesiMejaDitutup(); @endphp
     <span class="badge {{ $pesanan->status_pesanan === 'dibatalkan' ? 'text-bg-danger' : ($sesiDitutup || $pesanan->status_pesanan === 'selesai' ? 'text-bg-secondary' : ($pesanan->pembayaran->status_bayar === 'berhasil' ? 'text-bg-success' : 'text-bg-warning')) }}">
         {{ $pesanan->status_pesanan === 'dibatalkan' ? 'Pesanan dibatalkan' : ($sesiDitutup || $pesanan->status_pesanan === 'selesai' ? 'Sesi pesanan selesai' : ($pesanan->pembayaran->status_bayar === 'berhasil' ? 'Lunas' : 'Menunggu pembayaran')) }}
@@ -42,8 +44,13 @@
                 <p class="text-muted">Pesanan tidak dapat dibayar atau diproses lagi setelah sesi meja ditutup. Hubungi kasir jika Anda sudah melakukan pembayaran.</p>
             @elseif($pesanan->pembayaran->status_bayar === 'berhasil')
                 <div class="eyebrow">Pembayaran berhasil</div>
-                <h2 class="h5">Pesanan sedang diproses di dapur</h2>
-                <p class="text-muted">Terima kasih. Status pesanan akan diperbarui otomatis.</p>
+                @if($pesanan->reservasi && $pesanan->reservasi->waktu_mulai->isFuture())
+                    <h2 class="h5">Pre-order tersimpan</h2>
+                    <p class="text-muted">Pesanan akan masuk antrean dapur saat booking dimulai pada {{ $pesanan->reservasi->waktu_mulai->format('d/m/Y H:i') }}.</p>
+                @else
+                    <h2 class="h5">Pesanan sedang diproses di dapur</h2>
+                    <p class="text-muted">Terima kasih. Status pesanan akan diperbarui otomatis.</p>
+                @endif
             @elseif($pesanan->pembayaran->metode === 'qris')
                 <div class="eyebrow">Bayar dengan QRIS</div>
                 <h2 class="h5">Scan QR untuk membayar</h2>

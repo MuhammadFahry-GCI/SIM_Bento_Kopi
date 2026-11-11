@@ -13,10 +13,11 @@ use App\Http\Controllers\MenuController;
 use App\Http\Controllers\PelangganController;
 use App\Http\Controllers\PelayanController;
 use App\Http\Controllers\PesananController;
+use App\Http\Controllers\ReservasiController;
 use App\Http\Middleware\CekPeran;
 use Illuminate\Support\Facades\Route;
 
-Route::get('/', fn () => redirect()->route('login'));
+Route::get('/', [ReservasiController::class, 'index'])->name('reservasi.index');
 
 // Pelanggan (tanpa login), masuk lewat QR meja
 Route::get('/meja/{nomor}', [PelangganController::class, 'form'])->name('pelanggan.form');
@@ -38,12 +39,18 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middl
 Route::middleware('auth')->group(function () {
     Route::get('/beranda', [AuthController::class, 'beranda'])->name('beranda');
 
+    Route::middleware(CekPeran::class . ':kasir,member')->group(function () {
+        Route::get('/reservasi/meja/{id}', [ReservasiController::class, 'form'])->name('reservasi.form');
+        Route::post('/reservasi/meja/{id}', [ReservasiController::class, 'store'])->name('reservasi.store');
+    });
+
     // Kasir
     Route::middleware(CekPeran::class . ':kasir')->prefix('kasir')->group(function () {
         Route::get('/', [KasirController::class, 'index'])->name('kasir.index');
         Route::get('/pesanan-baru', [KasirController::class, 'baru'])->name('kasir.baru');
         Route::post('/pesanan-baru', [KasirController::class, 'simpan'])->name('kasir.simpan');
         Route::post('/pesanan/{id}/konfirmasi', [KasirController::class, 'konfirmasi'])->name('kasir.konfirmasi');
+        Route::post('/reservasi/{id}/mulai', [KasirController::class, 'mulaiReservasi'])->name('kasir.reservasi.mulai');
         Route::post('/meja/{id}/kosongkan', [KasirController::class, 'kosongkanMeja'])->name('kasir.meja.kosongkan');
     });
 
@@ -61,6 +68,10 @@ Route::middleware('auth')->group(function () {
     // Member (pelanggan terdaftar)
     Route::get('/member', [MemberController::class, 'index'])
         ->middleware(CekPeran::class . ':member')->name('member.index');
+    Route::post('/member/reservasi/{id}/diterima', [ReservasiController::class, 'diterima'])
+        ->middleware(CekPeran::class . ':member')->name('member.reservasi.diterima');
+    Route::post('/member/pesanan/{id}/diterima', [ReservasiController::class, 'pesananDiterima'])
+        ->middleware(CekPeran::class . ':member')->name('member.pesanan.diterima');
 
     // Pelayan
     Route::middleware(CekPeran::class . ':pelayan')->prefix('pelayan')->group(function () {

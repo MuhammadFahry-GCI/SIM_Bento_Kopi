@@ -9,7 +9,7 @@
                         <div class="small text-muted">Rp {{ number_format($m->harga, 0, ',', '.') }}</div>
                     </div>
                     <input type="number" name="items[{{ $m->id_menu }}]" value="{{ old('items.' . $m->id_menu, 0) }}"
-                           min="0" max="20" class="form-control" style="width:80px">
+                           min="0" max="20" data-menu-price="{{ $m->harga }}" class="form-control" style="width:80px">
                 </div>
             @endforeach
         </div>
