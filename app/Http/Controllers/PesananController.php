@@ -23,7 +23,7 @@ class PesananController extends Controller
                 return 'sesi_ditutup';
             }
             $p->update(['status_pesanan' => 'dibatalkan', 'alasan_batal' => $request->alasan]);
-            if ($p->reservasi?->status_reservasi === 'dipesan') {
+            if (in_array($p->reservasi?->status_reservasi, ['menunggu_pembayaran', 'dipesan'], true)) {
                 $p->reservasi->update(['status_reservasi' => 'dibatalkan']);
             }
             if ($p->pembayaran && $p->pembayaran->status_bayar === 'menunggu') {

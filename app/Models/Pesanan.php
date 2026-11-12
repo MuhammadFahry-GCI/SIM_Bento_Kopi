@@ -37,7 +37,7 @@ class Pesanan extends Model
                 ->where('meja.status_meja', 'terisi')
                 ->whereColumn('pesanan.siklus_meja', 'meja.siklus_penggunaan'))
                 ->orWhereHas('reservasi', fn (Builder $reservasi) => $reservasi
-                    ->where('status_reservasi', 'dipesan')
+                    ->whereIn('status_reservasi', ['menunggu_pembayaran', 'dipesan'])
                     ->where('waktu_mulai', '<=', now())
                     ->where('waktu_selesai', '>', now()));
         });
@@ -48,7 +48,7 @@ class Pesanan extends Model
         return $query->where(function (Builder $query) {
             $query->dalamSesiMejaAktif()
                 ->orWhereHas('reservasi', fn (Builder $reservasi) => $reservasi
-                    ->where('status_reservasi', 'dipesan')
+                    ->whereIn('status_reservasi', ['menunggu_pembayaran', 'dipesan'])
                     ->where('waktu_selesai', '>', now()));
         });
     }
@@ -60,7 +60,7 @@ class Pesanan extends Model
                 ->where('meja.status_meja', 'terisi')
                 ->whereColumn('pesanan.siklus_meja', 'meja.siklus_penggunaan'))
             ->whereDoesntHave('reservasi', fn (Builder $reservasi) => $reservasi
-                ->where('status_reservasi', 'dipesan')
+                ->whereIn('status_reservasi', ['menunggu_pembayaran', 'dipesan'])
                 ->where('waktu_selesai', '>', now()));
     }
 
@@ -68,7 +68,7 @@ class Pesanan extends Model
     {
         if (
             $this->reservasi
-            && $this->reservasi->status_reservasi === 'dipesan'
+            && in_array($this->reservasi->status_reservasi, ['menunggu_pembayaran', 'dipesan'], true)
             && $this->reservasi->waktu_selesai->isFuture()
         ) {
             return false;

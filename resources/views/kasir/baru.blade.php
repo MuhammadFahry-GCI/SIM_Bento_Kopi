@@ -24,13 +24,17 @@
                 <div class="kasir-table-grid">
                     @foreach($mejaArea as $m)
                         @php
-                            $statusLabel = $m->status_operasional === 'terisi' ? 'Sedang terisi · terkunci' : ($m->status_operasional === 'dipesan' ? 'Sudah dibooking · terkunci' : 'Tersedia');
+                            $statusLabel = $m->status_operasional === 'terisi'
+                                ? 'Sedang terisi · terkunci'
+                                : ($m->status_operasional === 'menunggu_pembayaran'
+                                    ? 'Menunggu pembayaran · slot ditahan'
+                                    : ($m->status_operasional === 'dipesan' ? 'Booking terkonfirmasi · terkunci' : 'Tersedia'));
                             $booking = $m->booking_aktif;
                             $pemesanBooking = $booking
                                 ? ($booking->member?->nama_lengkap ?? $booking->kasir?->nama_lengkap ?? $booking->nama_pemesan)
                                 : null;
                         @endphp
-                        <label class="kasir-table-option {{ $m->status_operasional === 'terisi' ? 'occupied' : ($m->status_operasional === 'dipesan' ? 'booked' : 'available') }}">
+                        <label class="kasir-table-option {{ $m->status_operasional === 'terisi' ? 'occupied' : (in_array($m->status_operasional, ['dipesan', 'menunggu_pembayaran'], true) ? 'booked' : 'available') }}">
                             @if($m->dapat_dipilih)
                                 <input type="radio" name="id_meja" value="{{ $m->id_meja }}" @checked((string) old('id_meja') === (string) $m->id_meja) required>
                             @endif
@@ -39,7 +43,7 @@
                             <span class="table-status {{ $m->status_operasional === 'tersedia' ? 'text-success' : 'text-danger' }}">{{ $statusLabel }}</span>
                             @if($booking)
                                 <div class="booking-info">
-                                    Dibooking oleh <strong>{{ $pemesanBooking }}</strong><br>
+                                    {{ $booking->status_reservasi === 'menunggu_pembayaran' ? 'Menunggu pembayaran dari' : 'Dibooking oleh' }} <strong>{{ $pemesanBooking }}</strong><br>
                                     {{ $booking->waktu_mulai->format('d/m/Y H:i') }}–{{ $booking->waktu_selesai->format('H:i') }}
                                 </div>
                             @elseif($m->status_operasional === 'terisi')

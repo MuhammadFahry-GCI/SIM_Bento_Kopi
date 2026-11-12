@@ -44,30 +44,6 @@
     .booking-detail strong { color: #8be0b3; }
     .booking-hero { position: relative; overflow: hidden; padding: clamp(1.25rem, 4vw, 2rem); border: 1px solid rgba(67,197,139,.2); border-radius: 20px; background: linear-gradient(120deg, rgba(23,134,92,.13), rgba(169,120,75,.08)), #171e19; }
     .booking-hero > * { position: relative; z-index: 1; }
-    .floor-plan { padding: clamp(1rem, 4vw, 2rem); border: 1px solid var(--bento-border); border-radius: 22px; background: linear-gradient(145deg, #1a211d, #151b17); }
-    .floor-stage { width: min(100%, 430px); margin: 0 auto 2rem; padding: .8rem 1rem; border: 1px solid rgba(169,120,75,.55); border-radius: 999px; color: #e8c39c; background: rgba(169,120,75,.09); font-size: .75rem; font-weight: 800; letter-spacing: .16em; text-align: center; text-transform: uppercase; }
-    .floor-area { margin-top: 1.75rem; }
-    .floor-area-title { display: flex; align-items: center; gap: .75rem; margin-bottom: .85rem; color: var(--bento-muted); font-size: .72rem; font-weight: 800; letter-spacing: .13em; text-transform: uppercase; }
-    .floor-area-title:after { height: 1px; flex: 1; background: var(--bento-border); content: ""; }
-    .seat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: .85rem; }
-    .seat-card { min-height: 145px; padding: .85rem; border: 1px solid var(--bento-border); border-radius: 16px; background: rgba(255,255,255,.025); }
-    .seat-card.available { border-color: rgba(67,197,139,.45); background: rgba(23,134,92,.08); }
-    .seat-card.booked { border-color: rgba(239,68,68,.72); background: rgba(185,28,28,.2); box-shadow: inset 0 0 0 1px rgba(239,68,68,.12); }
-    .seat-card.occupied { border-color: rgba(220,95,85,.45); background: rgba(150,53,48,.09); }
-    .seat-top { display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
-    .seat-number { font-size: 1rem; font-weight: 800; }
-    .seat-icon { display: grid; width: 36px; height: 36px; place-items: center; border: 1px solid currentColor; border-radius: 12px; color: #72d9a8; font-size: .75rem; font-weight: 800; }
-    .seat-card.booked .seat-icon { color: #f87171; }
-    .seat-card.booked .seat-status { color: #fca5a5; }
-    .seat-card.occupied .seat-icon { color: #ed8980; }
-    .seat-card .seat-status { display: block; margin-top: .75rem; font-size: .75rem; font-weight: 700; }
-    .seat-card .seat-meta { color: var(--bento-muted); font-size: .75rem; }
-    .seat-card .btn { margin-top: .65rem; }
-    .seat-legend { display: flex; flex-wrap: wrap; gap: .75rem 1.25rem; margin-top: 1.5rem; color: var(--bento-muted); font-size: .8rem; }
-    .seat-legend span { display: inline-flex; align-items: center; gap: .45rem; }
-    .legend-dot { width: 10px; height: 10px; border-radius: 50%; background: #43c58b; }
-    .legend-dot.booked { background: #ef4444; }
-    .legend-dot.occupied { background: #dc655c; }
     .landing-footer { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .75rem; margin-top: 4.5rem; padding-top: 1.25rem; border-top: 1px solid var(--bento-border); color: var(--bento-muted); font-size: .8rem; }
     @media (max-width: 800px) {
         .landing-page { padding: .75rem .85rem 3.5rem; }
@@ -145,7 +121,7 @@
                 <p>Pilih jadwal dan lihat ketersediaan meja sebelum datang.</p>
             </div>
             <div class="booking-details" aria-label="Informasi reservasi">
-                <span class="booking-detail"><strong>1–6 jam</strong> durasi fleksibel</span>
+                <span class="booking-detail"><strong>2 jam</strong> durasi per sesi</span>
                 <span class="booking-detail"><strong>Rp50.000</strong> minimum pre-order</span>
             </div>
         </div>
@@ -157,60 +133,16 @@
                     <input id="waktu_mulai" type="datetime-local" name="waktu_mulai" value="{{ $waktuMulai->format('Y-m-d\TH:i') }}" min="{{ now()->addMinute()->format('Y-m-d\TH:i') }}" class="form-control" required>
                 </div>
                 <div>
-                    <label for="durasi_jam" class="form-label">Durasi</label>
-                    <select id="durasi_jam" name="durasi_jam" class="form-select">
-                        @for($jam = 1; $jam <= 6; $jam++)
-                            <option value="{{ $jam }}" @selected($durasiJam === $jam)>{{ $jam }} jam</option>
-                        @endfor
-                    </select>
+                    <label class="form-label">Durasi</label>
+                    <input type="hidden" name="durasi_jam" value="2">
+                    <div class="form-control bg-light text-dark">2 jam per sesi</div>
                 </div>
                 <div class="pb-2 small text-muted">Sampai <span id="booking-end-preview">{{ $waktuSelesai->format('d/m/Y H:i') }}</span></div>
                 <button class="btn btn-outline-success">Lihat ketersediaan</button>
             </div>
         </form>
 
-        <div class="floor-plan">
-            <div class="floor-stage">Area bar &amp; kasir</div>
-            @forelse($meja->groupBy('area') as $area => $mejaArea)
-                <section class="floor-area">
-                    <h3 class="floor-area-title">{{ ucfirst($area) }}</h3>
-                    <div class="seat-grid">
-                        @foreach($mejaArea as $m)
-                            @php
-                                $statusClass = $m->status_layout === 'terisi' ? 'occupied' : ($m->status_layout === 'dipesan' ? 'booked' : 'available');
-                                $statusLabel = $m->status_layout === 'terisi' ? 'Sedang terisi' : ($m->status_layout === 'dipesan' ? 'Sudah dibooking' : 'Tersedia');
-                            @endphp
-                            <article class="seat-card {{ $statusClass }}">
-                                <div class="seat-top">
-                                    <span class="seat-number">Meja {{ $m->nomor_meja }}</span>
-                                    <span class="seat-icon" aria-label="{{ $m->kapasitas }} kursi">{{ $m->kapasitas }} <small>kursi</small></span>
-                                </div>
-                                <span class="seat-status">{{ $statusLabel }}</span>
-                                <div class="seat-meta">{{ ucfirst($m->area) }}</div>
-                                @if($m->tersedia_booking)
-                                    @auth
-                                        @if(in_array(auth()->user()->peran, ['member', 'kasir'], true))
-                                            <a class="btn btn-sm btn-outline-success w-100" href="{{ route('reservasi.form', ['id' => $m->id_meja, 'waktu_mulai' => $waktuMulai->format('Y-m-d\TH:i'), 'durasi_jam' => $durasiJam]) }}">Pilih meja</a>
-                                        @else
-                                            <span class="d-block mt-2 small text-muted">Booking melalui kasir atau akun member</span>
-                                        @endif
-                                    @else
-                                        <a class="btn btn-sm btn-outline-success w-100" href="{{ route('login') }}">Login untuk pilih</a>
-                                    @endauth
-                                @endif
-                            </article>
-                        @endforeach
-                    </div>
-                </section>
-            @empty
-                <div class="text-center text-muted py-5">Belum ada data meja. Silakan hubungi kasir.</div>
-            @endforelse
-            <div class="seat-legend">
-                <span><i class="legend-dot"></i>Tersedia</span>
-                <span><i class="legend-dot booked"></i>Sudah dibooking</span>
-                <span><i class="legend-dot occupied"></i>Sedang terisi</span>
-            </div>
-        </div>
+        @include('partials.denah_meja')
         <footer class="landing-footer">
             <span>Bento Kopi Pekanbaru · Tempat cerita dimulai.</span>
             <a href="{{ route('pengetahuan.index') }}">Lihat panduan pemesanan</a>
@@ -220,19 +152,17 @@
 @push('scripts')
 <script>
     const bookingStartInput = document.getElementById('waktu_mulai');
-    const bookingDurationInput = document.getElementById('durasi_jam');
     const bookingEndPreview = document.getElementById('booking-end-preview');
     const updateBookingEnd = () => {
         const start = new Date(bookingStartInput.value);
         if (Number.isNaN(start.getTime())) return;
-        start.setHours(start.getHours() + Number(bookingDurationInput.value));
+        start.setHours(start.getHours() + 2);
         bookingEndPreview.textContent = new Intl.DateTimeFormat('id-ID', {
             dateStyle: 'medium',
             timeStyle: 'short',
         }).format(start);
     };
     bookingStartInput.addEventListener('input', updateBookingEnd);
-    bookingDurationInput.addEventListener('change', updateBookingEnd);
 </script>
 @endpush
 @endsection

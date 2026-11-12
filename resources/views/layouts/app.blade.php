@@ -170,7 +170,6 @@
                     <a class="{{ request()->routeIs('dapur.index') ? 'active' : '' }}" href="{{ route('dapur.index') }}">Antrean dapur</a>
                 @elseif($peran === 'member')
                     <a class="{{ request()->routeIs('member.index') ? 'active' : '' }}" href="{{ route('member.index') }}">Beranda member</a>
-                    <a class="{{ request()->routeIs('reservasi.*') ? 'active' : '' }}" href="{{ route('reservasi.index') }}">Booking meja</a>
                 @elseif($peran === 'pelayan')
                     <a class="{{ request()->routeIs('pelayan.index') ? 'active' : '' }}" href="{{ route('pelayan.index') }}">Penyajian</a>
                 @elseif(in_array($peran, ['manajer', 'group']))

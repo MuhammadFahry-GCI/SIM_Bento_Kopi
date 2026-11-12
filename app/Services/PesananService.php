@@ -32,7 +32,7 @@ class PesananService
                 if ($idKasir !== null) {
                     $adaBookingAktif = ReservasiMeja::query()
                         ->where('id_meja', $meja->id_meja)
-                        ->where('status_reservasi', 'dipesan')
+                        ->whereIn('status_reservasi', ['menunggu_pembayaran', 'dipesan'])
                         ->where('waktu_selesai', '>', now())
                         ->lockForUpdate()
                         ->exists();
@@ -124,7 +124,7 @@ class PesananService
             }
             $queryBooking = ReservasiMeja::query()
                 ->where('id_meja', $meja->id_meja)
-                ->where('status_reservasi', 'dipesan')
+                ->whereIn('status_reservasi', ['menunggu_pembayaran', 'dipesan'])
                 ->where('waktu_selesai', '>', now());
             if ($lock) {
                 $queryBooking->lockForUpdate();
@@ -155,7 +155,7 @@ class PesananService
 
         $queryBooking = ReservasiMeja::query()
             ->where('id_meja', $meja->id_meja)
-            ->where('status_reservasi', 'dipesan')
+            ->whereIn('status_reservasi', ['menunggu_pembayaran', 'dipesan'])
             ->where('waktu_selesai', '>', now());
         if ($lock) {
             $queryBooking->lockForUpdate();

@@ -13,7 +13,7 @@
         <div><strong>{{ $p->nomor_pesanan }}</strong> - Meja {{ $p->meja->nomor_meja }}
             <div class="small">Pemesan: {{ $p->nama_pemesan_tampilan ?: 'Tidak dicantumkan' }}</div>
             @if($p->reservasi)
-                <div class="small text-muted">Booking {{ $p->reservasi->waktu_mulai->format('d/m/Y H:i') }}–{{ $p->reservasi->waktu_selesai->format('H:i') }} · {{ $p->reservasi->durasi_jam }} jam</div>
+                <div class="small text-muted">{{ $p->reservasi->status_reservasi === 'menunggu_pembayaran' ? 'Menunggu pembayaran · slot ditahan' : 'Booking terkonfirmasi' }} · {{ $p->reservasi->waktu_mulai->format('d/m/Y H:i') }}–{{ $p->reservasi->waktu_selesai->format('H:i') }} · {{ $p->reservasi->durasi_jam }} jam</div>
                 <div class="small" data-booking-timer data-start="{{ $p->reservasi->waktu_mulai->toIso8601String() }}" data-end="{{ $p->reservasi->waktu_selesai->toIso8601String() }}" data-checked-in="{{ $p->reservasi->waktu_diterima ? 'true' : 'false' }}" aria-live="polite"></div>
             @endif
             <div class="small text-muted">{{ strtoupper($p->pembayaran->metode) }} · Rp {{ number_format($p->total_harga, 0, ',', '.') }} | {{ $p->waktu_pesan->format('H:i') }}</div></div>
@@ -50,6 +50,15 @@
             </form>
         @elseif($p->reservasi?->waktu_checkin)
             <div class="small text-success mt-2">Pelanggan check-in {{ $p->reservasi->waktu_checkin->format('H:i') }} · menunggu pesanan diterima</div>
+        @endif
+        @if($p->reservasi && $p->reservasi->id_member === null && $p->status_pesanan === 'siap' && $p->pembayaran?->status_bayar === 'berhasil' && !$p->reservasi->waktu_diterima && $p->reservasi->waktu_mulai->lte(now()) && $p->reservasi->waktu_selesai->gt(now()))
+            <form method="POST" action="{{ route('kasir.reservasi.pesanan.diterima', $p->id_pesanan) }}" class="w-100 mt-2"
+                data-confirm="Pastikan pesanan booking sudah benar-benar diterima pelanggan."
+                data-confirm-title="Catat pesanan diterima?"
+                data-confirm-button="Ya, pesanan diterima">
+                @csrf
+                <button class="btn btn-sm btn-success">Catat pesanan diterima pelanggan</button>
+            </form>
         @endif
     </div></div>
 @empty
@@ -156,20 +165,20 @@
                             ->unique()
                             ->implode(', ');
                     @endphp
-                    <article class="cashier-floor-table {{ $m->status_operasional === 'terisi' ? 'occupied' : ($m->status_operasional === 'dipesan' ? 'booked' : 'available') }}">
+                    <article class="cashier-floor-table {{ $m->status_operasional === 'terisi' ? 'occupied' : (in_array($m->status_operasional, ['dipesan', 'menunggu_pembayaran'], true) ? 'booked' : 'available') }}">
                         <div class="p-3">
                             <div class="d-flex justify-content-between align-items-start gap-2">
                                 <div>
                                     <strong>Meja {{ $m->nomor_meja }}</strong>
                                     <div class="cashier-floor-detail">{{ $m->kapasitas }} kursi</div>
                                 </div>
-                                <span class="badge {{ $m->status_operasional === 'terisi' ? 'bg-warning text-dark' : ($m->status_operasional === 'dipesan' ? 'bg-danger' : 'bg-success') }}">
-                                    {{ $m->status_operasional === 'terisi' ? 'Terisi' : ($m->status_operasional === 'dipesan' ? 'Dibooking' : 'Tersedia') }}
+                                <span class="badge {{ $m->status_operasional === 'terisi' ? 'bg-warning text-dark' : (in_array($m->status_operasional, ['dipesan', 'menunggu_pembayaran'], true) ? 'bg-danger' : 'bg-success') }}">
+                                {{ $m->status_operasional === 'terisi' ? 'Terisi' : ($m->status_operasional === 'menunggu_pembayaran' ? 'Menunggu pembayaran' : ($m->status_operasional === 'dipesan' ? 'Booking terkonfirmasi' : 'Tersedia')) }}
                                 </span>
                             </div>
                             @if($booking)
                                 <div class="cashier-floor-detail mt-2">
-                                    <strong>Dibooking oleh {{ $pemesanBooking }}</strong><br>
+                                    <strong>{{ $booking->status_reservasi === 'menunggu_pembayaran' ? 'Menunggu pembayaran dari' : 'Dibooking oleh' }} {{ $pemesanBooking }}</strong><br>
                                     {{ $booking->waktu_mulai->format('d/m/Y H:i') }}–{{ $booking->waktu_selesai->format('H:i') }} · {{ $booking->durasi_jam }} jam<br>
                                     Pesanan {{ $booking->pesanan->nomor_pesanan }} · {{ $booking->pesanan->pembayaran?->status_bayar === 'berhasil' ? 'Lunas' : 'Belum lunas' }}
                                 </div>
@@ -187,7 +196,7 @@
                                     <button class="btn btn-sm btn-outline-success w-100">Tandai meja tersedia</button>
                                 </form>
                             @elseif($booking)
-                                <div class="cashier-floor-detail mt-2">Meja dikunci sampai booking berakhir atau pelanggan check-in dan pesanan diterima.</div>
+                                <div class="cashier-floor-detail mt-2">{{ $booking->status_reservasi === 'menunggu_pembayaran' ? 'Slot ditahan sampai pembayaran lunas atau pesanan dibatalkan.' : 'Meja dikunci selama jadwal booking; status terisi setelah member menerima pesanan.' }}</div>
                             @else
                                 <div class="cashier-floor-detail mt-2">Siap dipilih untuk pesanan baru.</div>
                             @endif

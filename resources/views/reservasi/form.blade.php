@@ -2,8 +2,8 @@
 @section('judul', 'Booking Meja ' . $meja->nomor_meja)
 @section('isi')
 <div class="page-heading">
-    <div><span class="eyebrow">Booking meja {{ $meja->nomor_meja }}</span><h1>Atur kunjunganmu</h1><p>{{ ucfirst($meja->area) }} · {{ $meja->kapasitas }} kursi · Bisa dipilih 1–6 jam.</p></div>
-    <a class="btn btn-outline-secondary" href="{{ route('reservasi.index', ['waktu_mulai' => old('waktu_mulai', $waktuMulai), 'durasi_jam' => old('durasi_jam', $durasiJam)]) }}">Kembali ke denah</a>
+    <div><span class="eyebrow">Booking meja {{ $meja->nomor_meja }}</span><h1>Atur kunjunganmu</h1><p>{{ ucfirst($meja->area) }} · {{ $meja->kapasitas }} kursi · Durasi tetap 2 jam.</p></div>
+    <a class="btn btn-outline-secondary" href="{{ auth()->user()->peran === 'member' ? route('member.index', ['waktu_mulai' => old('waktu_mulai', $waktuMulai), 'durasi_jam' => $durasiJam]) : route('reservasi.index', ['waktu_mulai' => old('waktu_mulai', $waktuMulai), 'durasi_jam' => $durasiJam]) }}">Kembali ke denah</a>
 </div>
 
 <form method="POST" action="{{ route('reservasi.store', $meja->id_meja) }}">
@@ -16,17 +16,17 @@
                 <div class="form-text">Pilih jam kedatangan yang diinginkan.</div>
             </div>
             <div class="col-md-6">
-                <label for="durasi_jam" class="form-label">Durasi booking</label>
-                <select id="durasi_jam" name="durasi_jam" class="form-select" required>
-                    @for($jam = 1; $jam <= 6; $jam++)
-                        <option value="{{ $jam }}" @selected((int) old('durasi_jam', $durasiJam) === $jam)>{{ $jam }} jam</option>
-                    @endfor
-                </select>
-                <div class="form-text">Sampai <span id="booking-end-preview">{{ \Illuminate\Support\Carbon::parse(old('waktu_mulai', $waktuMulai))->addHours((int) old('durasi_jam', $durasiJam))->format('d/m/Y H:i') }}</span>. Meja kembali tersedia setelah sesi berakhir dan kasir mengosongkannya.</div>
+                <label class="form-label">Durasi booking</label>
+                <input type="hidden" name="durasi_jam" value="2">
+                <div class="form-control bg-light text-dark">2 jam per sesi</div>
+                <div class="form-text">Sampai <span id="booking-end-preview">{{ \Illuminate\Support\Carbon::parse(old('waktu_mulai', $waktuMulai))->addHours(2)->format('d/m/Y H:i') }}</span>. Slot booking ditahan sampai lunas atau dibatalkan.</div>
             </div>
             <div class="col-md-6">
                 <label for="nama_pemesan" class="form-label">Nama pemesan</label>
                 <input id="nama_pemesan" name="nama_pemesan" value="{{ old('nama_pemesan', auth()->user()->peran === 'member' ? auth()->user()->nama_lengkap : '') }}" class="form-control" maxlength="100" required>
+                @if(auth()->user()->peran === 'kasir')
+                    <div class="form-text">Booking kasir untuk pelanggan tanpa akun member; kasir mencatat pesanan diterima saat pelanggan sudah menerimanya.</div>
+                @endif
             </div>
             <div class="col-12">
                 <label for="catatan" class="form-label">Catatan (opsional)</label>
@@ -65,19 +65,17 @@
 @push('scripts')
 <script>
     const bookingStartInput = document.getElementById('waktu_mulai');
-    const bookingDurationInput = document.getElementById('durasi_jam');
     const bookingEndPreview = document.getElementById('booking-end-preview');
     const updateBookingEnd = () => {
         const start = new Date(bookingStartInput.value);
         if (Number.isNaN(start.getTime())) return;
-        start.setHours(start.getHours() + Number(bookingDurationInput.value));
+        start.setHours(start.getHours() + 2);
         bookingEndPreview.textContent = new Intl.DateTimeFormat('id-ID', {
             dateStyle: 'medium',
             timeStyle: 'short',
         }).format(start);
     };
     bookingStartInput.addEventListener('input', updateBookingEnd);
-    bookingDurationInput.addEventListener('change', updateBookingEnd);
 
     const bookingQuantities = document.querySelectorAll('[data-menu-price]');
     const bookingTotal = document.getElementById('booking-total');

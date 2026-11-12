@@ -1,52 +1,34 @@
 @extends('layouts.app')
 @section('judul', 'Beranda Member')
 @section('isi')
-<div class="page-heading"><div><span class="eyebrow">Bento Kopi member</span><h1>Halo, {{ auth()->user()->nama_lengkap }}</h1><p>Pilih meja untuk mulai memesan, atau pindai kode QR di meja.</p></div></div>
-<div class="card mb-4"><div class="card-body d-flex flex-wrap justify-content-between align-items-center gap-3">
-    <div><strong>Ingin datang di waktu tertentu?</strong><div class="small text-muted">Pilih jadwal dan durasi booking 1–6 jam dengan pre-order minimal Rp50.000.</div></div>
-    <a class="btn btn-dark" href="{{ route('reservasi.index') }}">Lihat denah &amp; booking meja</a>
-</div></div>
-<div class="row g-3 mb-4">
-    <div class="col-md-6"><div class="card h-100"><div class="card-body">
-        <div class="text-muted small">Meja tersedia</div>
-        <div class="fs-3 fw-bold">{{ $meja->where('status_tampilan', 'tersedia')->count() }}</div>
-        <div class="small text-muted">Tetap konfirmasi ketersediaan meja kepada kasir sebelum duduk.</div>
-    </div></div></div>
-    <div class="col-md-6"><div class="card h-100"><div class="card-body">
-        <div class="text-muted small">Meja sedang terisi</div>
-        <div class="fs-3 fw-bold">{{ $meja->where('status_tampilan', 'terisi')->count() }}</div>
-        <div class="small text-muted">Meja ditandai tersedia kembali oleh kasir setelah pelanggan meninggalkan tempat.</div>
-    </div></div></div>
-</div>
-<h5 class="mb-3">Status meja outlet</h5>
-<div class="row g-2 mb-4">
-    @foreach($meja as $m)
-        <div class="col-6 col-md-3">
-            <div class="card h-100 text-center">
-                <div class="card-body p-3">
-                    <div class="fw-bold">Meja {{ $m->nomor_meja }}</div>
-                    <div class="small text-muted">{{ $m->area }} · {{ $m->kapasitas }} kursi</div>
-                    <span class="badge mt-2 {{ $m->status_tampilan === 'terisi' ? 'bg-warning text-dark' : ($m->status_tampilan === 'dipesan' ? 'bg-danger' : 'bg-success') }}">
-                        {{ $m->status_tampilan === 'terisi' ? 'Sedang terisi' : ($m->status_tampilan === 'dipesan' ? 'Dibooking' : 'Tersedia') }}
-                    </span>
-                    @if($m->dapat_pesan_meja)
-                        <a href="{{ route('pelanggan.form', $m->nomor_meja) }}" class="btn btn-sm btn-outline-dark w-100 mt-2">
-                            {{ $m->status_tampilan === 'terisi' || $m->status_tampilan === 'dipesan' ? 'Tambah pesanan' : 'Pesan di meja ini' }}
-                        </a>
-                    @else
-                        <span class="d-block small text-danger mt-2">
-                            {{ $m->booking_pemilik ? 'Selesaikan pesanan booking sebelum tambah pesanan' : ($m->status_tampilan === 'terisi' ? 'Meja digunakan member lain' : 'Meja dibooking member lain') }}
-                        </span>
-                    @endif
-                </div>
-            </div>
-        </div>
-    @endforeach
-</div>
+<div class="page-heading"><div><span class="eyebrow">Bento Kopi member</span><h1>Halo, {{ auth()->user()->nama_lengkap }}</h1><p>Pilih waktu kunjungan dan meja untuk membuat booking seperti di landing page.</p></div></div>
 
 <section class="mb-5">
     <div class="page-heading">
-        <div><span class="eyebrow">Jadwal kunjungan</span><h2>Booking meja Anda</h2><p>Meja tetap berstatus dibooking selama pesanan belum dibayar atau belum diterima. Setelah pesanan diterima, kasir mengosongkan meja saat pelanggan pergi.</p></div>
+        <div><span class="eyebrow">Rencanakan kunjunganmu</span><h2>Pilih meja, nikmati waktumu.</h2><p>Denah dan proses booking di beranda ini menggunakan jadwal serta status meja yang sama dengan landing page.</p></div>
+        <span class="badge text-bg-light fs-6">Durasi booking: 2 jam</span>
+    </div>
+    <form method="GET" action="{{ route('member.index') }}" class="card mb-4">
+        <div class="card-body d-flex flex-wrap align-items-end gap-3">
+            <div>
+                <label for="waktu_mulai" class="form-label">Waktu mulai booking</label>
+                <input id="waktu_mulai" type="datetime-local" name="waktu_mulai" value="{{ $waktuMulai->format('Y-m-d\TH:i') }}" min="{{ now()->addMinute()->format('Y-m-d\TH:i') }}" class="form-control" required>
+            </div>
+            <div>
+                <label class="form-label">Durasi</label>
+                <input type="hidden" name="durasi_jam" value="2">
+                <div class="form-control bg-light text-dark">2 jam per sesi</div>
+            </div>
+            <div class="pb-2 small text-muted">Sampai <span id="booking-end-preview">{{ $waktuSelesai->format('d/m/Y H:i') }}</span></div>
+            <button class="btn btn-outline-success">Lihat ketersediaan</button>
+        </div>
+    </form>
+    @include('partials.denah_meja')
+</section>
+
+<section class="mb-5">
+    <div class="page-heading">
+        <div><span class="eyebrow">Jadwal kunjungan</span><h2>Booking meja Anda</h2><p>Slot ditahan saat pembayaran menunggu. Setelah lunas booking terkonfirmasi, dan meja baru terisi ketika member menerima pesanan. Kasir mengosongkan meja saat pelanggan pergi.</p></div>
     </div>
     <div class="d-grid gap-3">
         @forelse($reservasi as $booking)
@@ -63,8 +45,8 @@
                             data-checked-in="{{ $booking->waktu_diterima ? 'true' : 'false' }}"
                             aria-live="polite"></div>
                     </div>
-                    <span class="badge {{ $booking->waktu_diterima ? 'bg-success' : ($booking->waktu_mulai->isFuture() ? 'bg-info text-dark' : 'bg-danger') }}">
-                        {{ $booking->waktu_diterima ? 'Pesanan diterima · meja terisi' : ($booking->waktu_mulai->isFuture() ? 'Akan datang' : ($booking->waktu_checkin ? 'Check-in · menunggu pesanan' : 'Booking · menunggu pesanan')) }}
+                    <span class="badge {{ $booking->status_reservasi === 'menunggu_pembayaran' ? 'bg-warning text-dark' : ($booking->waktu_diterima ? 'bg-success' : ($booking->waktu_mulai->isFuture() ? 'bg-info text-dark' : 'bg-danger')) }}">
+                        {{ $booking->status_reservasi === 'menunggu_pembayaran' ? 'Menunggu pembayaran · slot ditahan' : ($booking->waktu_diterima ? 'Pesanan diterima · meja terisi' : ($booking->waktu_mulai->isFuture() ? 'Booking terkonfirmasi · akan datang' : ($booking->waktu_checkin ? 'Check-in · menunggu pesanan' : 'Booking terkonfirmasi · menunggu pesanan')) ) }}
                     </span>
                 </div>
                 <div class="small mt-2">
@@ -74,6 +56,15 @@
                 </div>
                 @if($p->pembayaran?->status_bayar === 'menunggu')
                     <a class="btn btn-sm btn-outline-success mt-3" href="{{ route('pelanggan.pembayaran', $p->nomor_pesanan) }}">Lanjutkan pembayaran</a>
+                @endif
+                @if($booking->status_reservasi === 'menunggu_pembayaran')
+                    <form method="POST" action="{{ route('member.reservasi.batal', $booking->id_reservasi) }}" class="mt-2"
+                        data-confirm="Slot meja akan dilepas dan pesanan pre-order dibatalkan."
+                        data-confirm-title="Batalkan booking?"
+                        data-confirm-button="Ya, batalkan booking">
+                        @csrf
+                        <button class="btn btn-sm btn-outline-danger">Batalkan booking belum lunas</button>
+                    </form>
                 @endif
                 @if($p->status_pesanan === 'siap' && $p->pembayaran?->status_bayar === 'berhasil' && !$booking->waktu_diterima && $booking->waktu_mulai->lte(now()) && $booking->waktu_selesai->gt(now()))
                     <form method="POST" action="{{ route('member.pesanan.diterima', $p->id_pesanan) }}" class="mt-3">
@@ -189,4 +180,20 @@
         </ul>
     @endif
 @endforeach
+@push('scripts')
+<script>
+    const bookingStartInput = document.getElementById('waktu_mulai');
+    const bookingEndPreview = document.getElementById('booking-end-preview');
+    const updateBookingEnd = () => {
+        const start = new Date(bookingStartInput.value);
+        if (Number.isNaN(start.getTime())) return;
+        start.setHours(start.getHours() + 2);
+        bookingEndPreview.textContent = new Intl.DateTimeFormat('id-ID', {
+            dateStyle: 'medium',
+            timeStyle: 'short',
+        }).format(start);
+    };
+    bookingStartInput.addEventListener('input', updateBookingEnd);
+</script>
+@endpush
 @endsection

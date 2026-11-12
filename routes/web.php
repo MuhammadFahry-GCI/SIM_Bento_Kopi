@@ -51,6 +51,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/pesanan-baru', [KasirController::class, 'simpan'])->name('kasir.simpan');
         Route::post('/pesanan/{id}/konfirmasi', [KasirController::class, 'konfirmasi'])->name('kasir.konfirmasi');
         Route::post('/reservasi/{id}/mulai', [KasirController::class, 'mulaiReservasi'])->name('kasir.reservasi.mulai');
+        Route::post('/reservasi/pesanan/{id}/diterima', [ReservasiController::class, 'pesananDiterima'])
+            ->name('kasir.reservasi.pesanan.diterima');
         Route::post('/meja/{id}/kosongkan', [KasirController::class, 'kosongkanMeja'])->name('kasir.meja.kosongkan');
     });
 
@@ -70,6 +72,8 @@ Route::middleware('auth')->group(function () {
         ->middleware(CekPeran::class . ':member')->name('member.index');
     Route::post('/member/reservasi/{id}/diterima', [ReservasiController::class, 'diterima'])
         ->middleware(CekPeran::class . ':member')->name('member.reservasi.diterima');
+    Route::post('/member/reservasi/{id}/batal', [ReservasiController::class, 'batalkan'])
+        ->middleware(CekPeran::class . ':member')->name('member.reservasi.batal');
     Route::post('/member/pesanan/{id}/diterima', [ReservasiController::class, 'pesananDiterima'])
         ->middleware(CekPeran::class . ':member')->name('member.pesanan.diterima');
 

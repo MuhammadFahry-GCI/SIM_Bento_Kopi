@@ -7,6 +7,7 @@ use App\Models\LogAktivitas;
 use App\Models\Meja;
 use App\Models\Pesanan;
 use App\Models\ReservasiMeja;
+use App\Services\DenahReservasiService;
 use App\Services\PesananService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -19,25 +20,12 @@ class ReservasiController extends Controller
     {
         $data = $request->validate([
             'waktu_mulai' => 'nullable|date|after:now',
-            'durasi_jam' => 'nullable|integer|in:1,2,3,4,5,6',
+            'durasi_jam' => 'nullable|integer|in:2',
         ]);
         $waktuMulai = Carbon::parse($data['waktu_mulai'] ?? now()->addMinutes(15));
-        $durasiJam = (int) ($data['durasi_jam'] ?? 2);
+        $durasiJam = 2; // Mengunci durasi 2 jam per sesi sesuai aturan bisnis
         $waktuSelesai = $waktuMulai->copy()->addHours($durasiJam);
-        $meja = Meja::orderBy('area')->orderBy('nomor_meja')->get();
-
-        foreach ($meja as $item) {
-            $bookingBentrok = ReservasiMeja::query()
-                ->where('id_meja', $item->id_meja)
-                ->where('status_reservasi', 'dipesan')
-                ->where('waktu_mulai', '<', $waktuSelesai)
-                ->where('waktu_selesai', '>', $waktuMulai)
-                ->exists();
-            $item->tersedia_booking = $item->status_meja === 'kosong' && !$bookingBentrok;
-            $item->status_layout = $item->status_meja === 'terisi'
-                ? 'terisi'
-                : ($bookingBentrok ? 'dipesan' : 'tersedia');
-        }
+        $meja = DenahReservasiService::untukJadwal($waktuMulai, $waktuSelesai);
 
         return view('reservasi.index', compact('meja', 'waktuMulai', 'waktuSelesai', 'durasiJam'));
     }
@@ -48,14 +36,14 @@ class ReservasiController extends Controller
 
         $data = $request->validate([
             'waktu_mulai' => 'nullable|date|after:now',
-            'durasi_jam' => 'nullable|integer|in:1,2,3,4,5,6',
+            'durasi_jam' => 'nullable|integer|in:2',
         ]);
         $meja = Meja::findOrFail($id);
         $kategori = KategoriMenu::with([
             'menu' => fn ($query) => $query->where('tersedia', 1)->orderBy('nama_menu'),
         ])->get();
         $waktuMulai = $data['waktu_mulai'] ?? now()->addMinutes(15)->format('Y-m-d\TH:i');
-        $durasiJam = (int) ($data['durasi_jam'] ?? 2);
+        $durasiJam = 2; // Mengunci durasi 2 jam per sesi
 
         return view('reservasi.form', compact('meja', 'kategori', 'waktuMulai', 'durasiJam'));
     }
@@ -66,7 +54,7 @@ class ReservasiController extends Controller
 
         $data = $request->validate([
             'waktu_mulai' => 'required|date|after:now',
-            'durasi_jam' => 'required|integer|in:1,2,3,4,5,6',
+            'durasi_jam' => 'nullable|integer|in:2',
             'items' => 'required|array',
             'items.*' => 'nullable|integer|min:0|max:20',
             'nama_pemesan' => 'required|string|max:100',
@@ -76,14 +64,16 @@ class ReservasiController extends Controller
                 ? 'required|in:menunggu,berhasil'
                 : 'prohibited',
         ]);
+        $data['durasi_jam'] = 2; // Mengunci durasi 2 jam per sesi
         $waktuMulai = Carbon::parse($data['waktu_mulai']);
 
         $reservasi = DB::transaction(function () use ($request, $data, $id, $waktuMulai) {
             $meja = Meja::query()->lockForUpdate()->findOrFail($id);
-            $waktuSelesai = $waktuMulai->copy()->addHours((int) $data['durasi_jam']);
+            $waktuSelesai = $waktuMulai->copy()->addHours(2);
             $bookingBentrok = ReservasiMeja::query()
                 ->where('id_meja', $meja->id_meja)
-                ->where('status_reservasi', 'dipesan')
+                ->whereIn('status_reservasi', ['menunggu_pembayaran', 'dipesan'])
+                ->whereHas('pesanan', fn ($q) => $q->where('status_pesanan', '<>', 'dibatalkan'))
                 ->where('waktu_mulai', '<', $waktuSelesai)
                 ->where('waktu_selesai', '>', $waktuMulai)
                 ->exists();
@@ -107,7 +97,9 @@ class ReservasiController extends Controller
                 'waktu_mulai' => $waktuMulai,
                 'waktu_selesai' => $waktuSelesai,
                 'durasi_jam' => $data['durasi_jam'],
-                'status_reservasi' => 'dipesan',
+                'status_reservasi' => ($data['status_bayar'] ?? 'menunggu') === 'berhasil'
+                    ? 'dipesan'
+                    : 'menunggu_pembayaran',
                 'dibuat_pada' => now(),
             ]);
 
@@ -122,8 +114,11 @@ class ReservasiController extends Controller
         });
 
         $pesanan = Pesanan::findOrFail($reservasi->id_pesanan);
-        return redirect()->route('pelanggan.pembayaran', $pesanan->nomor_pesanan)
-            ->with('ok', 'Booking meja tersimpan untuk durasi ' . $reservasi->durasi_jam . ' jam. Silakan lanjutkan pembayaran pre-order.');
+        $pesan = $reservasi->status_reservasi === 'dipesan'
+            ? 'Booking meja terkonfirmasi untuk durasi ' . $reservasi->durasi_jam . ' jam.'
+            : 'Slot meja ditahan sampai pembayaran lunas atau booking dibatalkan.';
+
+        return redirect()->route('pelanggan.pembayaran', $pesanan->nomor_pesanan)->with('ok', $pesan);
     }
 
     public function diterima(Request $request, int $id)
@@ -137,22 +132,77 @@ class ReservasiController extends Controller
         return $this->pesananDiterima($request, $reservasi->id_pesanan);
     }
 
-    public function pesananDiterima(Request $request, int $id)
+    public function batalkan(Request $request, int $id)
     {
         abort_unless($request->user()->peran === 'member', 403);
 
-        $diterima = DB::transaction(function () use ($request, $id) {
-            $pesanan = Pesanan::query()
-                ->with('pembayaran')
+        $dibatalkan = DB::transaction(function () use ($request, $id) {
+            $reservasi = ReservasiMeja::query()
                 ->where('id_member', $request->user()->id_pengguna)
                 ->lockForUpdate()
                 ->findOrFail($id);
+            $pesanan = Pesanan::query()
+                ->with('pembayaran')
+                ->lockForUpdate()
+                ->findOrFail($reservasi->id_pesanan);
+
+            if (
+                $reservasi->status_reservasi !== 'menunggu_pembayaran'
+                || $pesanan->status_pesanan !== 'menunggu_bayar'
+                || $pesanan->pembayaran?->status_bayar !== 'menunggu'
+            ) {
+                return false;
+            }
+
+            $reservasi->update(['status_reservasi' => 'dibatalkan']);
+            $pesanan->update([
+                'status_pesanan' => 'dibatalkan',
+                'alasan_batal' => 'Dibatalkan oleh member sebelum pembayaran',
+            ]);
+            $pesanan->pembayaran->update(['status_bayar' => 'gagal']);
+            LogAktivitas::catat(
+                'batal_pesanan',
+                'pesanan',
+                $pesanan->id_pesanan,
+                $pesanan->alasan_batal
+            );
+
+            return true;
+        });
+
+        if (!$dibatalkan) {
+            return back()->with('error', 'Booking hanya dapat dibatalkan member sebelum pembayaran lunas.');
+        }
+
+        return back()->with('ok', 'Booking dibatalkan dan slot meja tersedia kembali.');
+    }
+
+    public function pesananDiterima(Request $request, int $id)
+    {
+        $isMember = $request->user()->peran === 'member';
+        $isKasir = $request->user()->peran === 'kasir';
+        abort_unless($isMember || $isKasir, 403);
+
+        $diterima = DB::transaction(function () use ($request, $id, $isMember, $isKasir) {
+            $queryPesanan = Pesanan::query()->with('pembayaran')->lockForUpdate();
+            if ($isMember) {
+                $queryPesanan->where('id_member', $request->user()->id_pengguna);
+            } else {
+                $queryPesanan->whereNull('id_member')
+                    ->whereHas('reservasi', fn ($query) => $query
+                        ->whereNull('id_member')
+                        ->where('status_reservasi', 'dipesan'));
+            }
+            $pesanan = $queryPesanan->findOrFail($id);
             $reservasi = ReservasiMeja::query()
                 ->where('id_pesanan', $pesanan->id_pesanan)
                 ->lockForUpdate()
                 ->first();
             $meja = Meja::query()->lockForUpdate()->findOrFail($pesanan->id_meja);
 
+            if ($isKasir && !$reservasi) {
+                return 'bukan_booking_tamu';
+            }
             if ($pesanan->status_pesanan === 'disajikan' || ($reservasi && $reservasi->waktu_diterima !== null)) {
                 return 'sudah_dikonfirmasi';
             }
@@ -190,10 +240,10 @@ class ReservasiController extends Controller
             }
             $meja->update(['status_meja' => 'terisi']);
             LogAktivitas::catat(
-                'konfirmasi_pesanan_member',
+                $isMember ? 'konfirmasi_pesanan_member' : 'konfirmasi_pesanan_pelanggan',
                 'pesanan',
                 $pesanan->id_pesanan,
-                $pesanan->nomor_pesanan . ' dikonfirmasi sudah diterima member'
+                $pesanan->nomor_pesanan . ' dikonfirmasi sudah diterima pelanggan'
             );
 
             return true;
@@ -214,10 +264,15 @@ class ReservasiController extends Controller
         if ($diterima === 'sesi_sudah_ditutup') {
             return back()->with('error', 'Sesi meja sudah ditutup oleh kasir dan tidak dapat dilanjutkan.');
         }
+        if ($diterima === 'bukan_booking_tamu') {
+            return back()->with('error', 'Kasir hanya dapat mencatat penerimaan untuk booking pelanggan tanpa akun member.');
+        }
         if ($diterima !== true) {
             return back()->with('error', 'Konfirmasi pesanan ini sudah pernah dicatat.');
         }
 
-        return back()->with('ok', 'Terima kasih, pesanan dicatat sudah diterima.');
+        return back()->with('ok', $isKasir
+            ? 'Penerimaan pesanan pelanggan dicatat dan meja sekarang terisi.'
+            : 'Terima kasih, pesanan dicatat sudah diterima.');
     }
 }
